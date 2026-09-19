@@ -1,0 +1,7 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/shared-kernel" },
+    { "path": "./packages/error-catalog" }
+  ]
+}

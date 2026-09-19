@@ -1,0 +1,24 @@
+{
+  "name": "shadow-helix-nebula",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shadow : Helix Nebula (SHN) — Sovereign Cybersecurity Architecture & Platform",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build",
+    "test": "npm run build && node --test packages/*/test/**/*.test.ts",
+    "lint:deps": "node scripts/check-deps.js"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  }
+}
