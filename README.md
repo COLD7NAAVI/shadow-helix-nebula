@@ -26,30 +26,46 @@ The complete foundational architecture is permanently frozen and codified under 
 
 ---
 
-## Phase 1: Stage 1 Implementation — Repository Workspace & Shared Kernel
+## Phase 1: Stage 2 Implementation — Data Substrate & Migrations
 
-Stage 1 establishes the foundational workspace and core type kernel without business logic, databases, or external runtime dependencies.
+Stage 2 establishes the PostgreSQL persistence layer, deterministic migration engine, connection pool lifecycle, and multi-tenant schema boundaries.
 
 ### Workspace Structure
 - `packages/shared-kernel`: Core domain primitives, nominal branded IDs, network value objects, functional `Result<T, E>` monads, Canonical Event Envelope DTOs, and abstract configuration contracts.
 - `packages/error-catalog`: RFC 7807 Problem Details serialization and canonical error taxonomy.
+- `packages/data-access`: PostgreSQL persistence substrate, connection pooling, transactional boundaries, advisory-locked migrations, IAM/Workspace/Audit repositories, and database-level audit immutability triggers.
 
 ### Architectural Invariants Enforced
 - **`MOD-INV-01`**: Strict public contract compliance via facade exports.
 - **`MOD-INV-02`**: Zero circular imports; strict DAG module hierarchy.
 - **`SEC-INV-14`**: Safe deserialization; strict schema validation; zero reflection.
-- **`API-INV-06`**: Canonical Event Envelope schema enforcement.
+- **`API-INV-06`**: Canonical Event Envelope schema enforcement (all 13 fields persisted).
 - **`API-INV-14`**: Machine-readable RFC 7807 error format with zero stack trace leakage.
-- **`INV-09`**: Infrastructure neutrality; zero external database or cloud dependencies.
+- **`DATA-INV-01`**: PostgreSQL canonical relational system of record.
+- **`DATA-INV-05`**: Single module table ownership; zero cross-context SQL joins.
+- **`DATA-INV-07` / `SEC-INV-11`**: Append-only audit ledger with engine-level mutation triggers rejecting `UPDATE`, `DELETE`, and `TRUNCATE`.
+- **`DATA-INV-08`**: Multi-tenant workspace hermeticity enforced at query and constraint levels.
 
 ### Developer Commands
 ```bash
-# Typecheck all packages
-npm run typecheck
+# Typecheck & build all packages
+npm run build
 
-# Run unit test suite
-npm run test
-
-# Run architectural dependency lint
+# Run architectural dependency lint (enforces package-aware DAG rules)
 npm run lint:deps
+
+# Run pure unit tests (zero database required)
+npm run test:unit
+
+# Start isolated PostgreSQL test database (Docker Compose or local fallback)
+npm run db:test:start
+
+# Run PostgreSQL integration tests
+npm run test:integration
+
+# Run full project test suite (unit + integration)
+npm test
+
+# Stop isolated test database
+npm run db:test:stop
 ```

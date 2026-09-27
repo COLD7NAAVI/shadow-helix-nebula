@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "./packages/shared-kernel" },
-    { "path": "./packages/error-catalog" }
+    { "path": "./packages/error-catalog" },
+    { "path": "./packages/data-access" }
   ]
 }

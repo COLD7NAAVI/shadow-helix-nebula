@@ -1,0 +1,33 @@
+{
+  "name": "@shn/data-access",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shadow : Helix Nebula (SHN) — Control & Data Plane PostgreSQL Persistence Substrate",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build",
+    "test": "node --test test/unit/**/*.test.ts",
+    "test:unit": "node --test test/unit/**/*.test.ts",
+    "test:integration": "node --test test/integration/**/*.test.ts"
+  },
+  "dependencies": {
+    "pg": "^8.13.3"
+  },
+  "devDependencies": {
+    "@shn/error-catalog": "*",
+    "@shn/shared-kernel": "*",
+    "@types/node": "^26.6.2",
+    "@types/pg": "^8.11.11",
+    "typescript": "^5.9.3"
+  }
+}
