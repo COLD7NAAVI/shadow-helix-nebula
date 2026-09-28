@@ -70,3 +70,24 @@ export {
 export {
   AuditEventRepository,
 } from './repositories/audit-repository.js';
+
+export {
+  OutboxRepository,
+  type OutboxRecord,
+  type OutboxStatus,
+  type ClaimBatchOptions,
+} from './repositories/outbox-repository.js';
+
+export {
+  DeduplicationRepository,
+  type DeduplicationRecord,
+  type DeduplicationStatus,
+  type DeduplicationAcquireResult,
+} from './repositories/deduplication-repository.js';
+
+export {
+  DeadLetterRepository,
+  type DeadLetterRecord,
+  type CreateDeadLetterInput,
+  type ListDeadLettersOptions,
+} from './repositories/dead-letter-repository.js';

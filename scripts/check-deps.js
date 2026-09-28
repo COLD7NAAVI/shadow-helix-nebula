@@ -17,15 +17,39 @@ const PACKAGES_DIR = path.join(ROOT, 'packages');
 export const ARCHITECTURAL_RULES = {
   '@shn/shared-kernel': {
     allowedRuntimeDeps: new Set([]),
-    forbiddenWorkspaceDeps: new Set(['@shn/error-catalog', '@shn/data-access']),
+    forbiddenWorkspaceDeps: new Set([
+      '@shn/error-catalog',
+      '@shn/data-access',
+      '@shn/telemetry',
+      '@shn/event-bus',
+    ]),
   },
   '@shn/error-catalog': {
     allowedRuntimeDeps: new Set([]),
-    forbiddenWorkspaceDeps: new Set(['@shn/data-access']),
+    forbiddenWorkspaceDeps: new Set([
+      '@shn/data-access',
+      '@shn/telemetry',
+      '@shn/event-bus',
+    ]),
+  },
+  '@shn/telemetry': {
+    allowedRuntimeDeps: new Set([]),
+    allowedWorkspaceDeps: new Set(['@shn/shared-kernel', '@shn/error-catalog']),
+    forbiddenWorkspaceDeps: new Set(['@shn/data-access', '@shn/event-bus']),
   },
   '@shn/data-access': {
     allowedRuntimeDeps: new Set(['pg']),
     allowedWorkspaceDeps: new Set(['@shn/shared-kernel', '@shn/error-catalog']),
+    forbiddenWorkspaceDeps: new Set(['@shn/telemetry', '@shn/event-bus']),
+  },
+  '@shn/event-bus': {
+    allowedRuntimeDeps: new Set([]),
+    allowedWorkspaceDeps: new Set([
+      '@shn/shared-kernel',
+      '@shn/error-catalog',
+      '@shn/telemetry',
+      '@shn/data-access',
+    ]),
     forbiddenWorkspaceDeps: new Set([]),
   },
 };

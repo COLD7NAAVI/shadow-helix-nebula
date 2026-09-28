@@ -1,0 +1,30 @@
+{
+  "name": "@shn/event-bus",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shadow : Helix Nebula (SHN) — Event Substrate, Transactional Outbox, Retries & Dead-Letter Handling",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build",
+    "test": "node --test test/**/*.test.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@shn/data-access": "*",
+    "@shn/error-catalog": "*",
+    "@shn/shared-kernel": "*",
+    "@shn/telemetry": "*",
+    "@types/node": "^26.6.2",
+    "typescript": "^5.9.3"
+  }
+}

@@ -3,6 +3,8 @@
   "references": [
     { "path": "./packages/shared-kernel" },
     { "path": "./packages/error-catalog" },
-    { "path": "./packages/data-access" }
+    { "path": "./packages/data-access" },
+    { "path": "./packages/telemetry" },
+    { "path": "./packages/event-bus" }
   ]
 }

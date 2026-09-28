@@ -1,0 +1,28 @@
+{
+  "name": "@shn/telemetry",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shadow : Helix Nebula (SHN) — Observability, Structured Logging, Distributed Tracing & Metrics",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build",
+    "test": "node --test test/**/*.test.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@shn/error-catalog": "*",
+    "@shn/shared-kernel": "*",
+    "@types/node": "^26.6.2",
+    "typescript": "^5.9.3"
+  }
+}
