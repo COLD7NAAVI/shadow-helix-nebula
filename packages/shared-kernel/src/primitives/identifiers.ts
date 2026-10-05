@@ -27,6 +27,7 @@ export type PermissionId = Brand<string, 'PermissionId'>;
 export type SecretId = Brand<string, 'SecretId'>;
 export type SessionId = Brand<string, 'SessionId'>;
 export type SecretVersionId = Brand<string, 'SecretVersionId'>;
+export type ScopeId = Brand<string, 'ScopeId'>;
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -125,4 +126,8 @@ export function createSessionId(id?: string): Result<SessionId, string> {
 
 export function createSecretVersionId(id?: string): Result<SecretVersionId, string> {
   return parseUUID<SecretVersionId>(id ?? generateUUIDv4(), 'SecretVersionId');
+}
+
+export function createScopeId(id?: string): Result<ScopeId, string> {
+  return parseUUID<ScopeId>(id ?? generateUUIDv7(), 'ScopeId');
 }

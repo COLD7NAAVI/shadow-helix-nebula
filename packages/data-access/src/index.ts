@@ -125,3 +125,10 @@ export {
   type SecretVersionRecord,
   type CreateSecretVersionInput,
 } from './repositories/secrets-version-repository.js';
+
+export {
+  ScopeRepository,
+  type ScopeRecord,
+  type CreateScopeInput,
+  type ScopeStatus,
+} from './repositories/scope-repository.js';

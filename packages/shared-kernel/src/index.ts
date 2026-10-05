@@ -37,6 +37,7 @@ export {
   type SecretId,
   type SessionId,
   type SecretVersionId,
+  type ScopeId,
   isValidUUID,
   parseUUID,
   generateUUIDv4,
@@ -56,6 +57,7 @@ export {
   createSecretId,
   createSessionId,
   createSecretVersionId,
+  createScopeId,
 } from './primitives/identifiers.js';
 
 // Network Target Primitives & Anti-SSRF

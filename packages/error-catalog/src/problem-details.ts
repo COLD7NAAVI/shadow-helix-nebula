@@ -69,6 +69,10 @@ const DEFAULT_ERROR_METADATA: Record<ErrorCodeType, { status: number; title: str
   [ErrorCode.SCOPE_WINDOW_CLOSED]: { status: 403, title: 'Operational Time Window Closed' },
   [ErrorCode.SCOPE_MALFORMED]: { status: 400, title: 'Malformed Target Scope Specification' },
   [ErrorCode.SCOPE_TAMPERED]: { status: 403, title: 'Scope Token Hash Tampering Detected' },
+  [ErrorCode.SCOPE_TOKEN_INVALID]: { status: 401, title: 'Scope Token Cryptographically Invalid' },
+  [ErrorCode.SCOPE_TOKEN_EXPIRED]: { status: 401, title: 'Scope Token Operational Window Expired' },
+  [ErrorCode.SCOPE_ACTION_DISALLOWED]: { status: 403, title: 'Capability Action Disallowed by Scope' },
+  [ErrorCode.SCOPE_PORT_DISALLOWED]: { status: 403, title: 'Target Port Disallowed by Scope' },
 
   [ErrorCode.WORKFLOW_CYCLE_DETECTED]: { status: 422, title: 'Invalid Cyclic Workflow Topology' },
   [ErrorCode.WORKFLOW_STEP_FAILED]: { status: 500, title: 'Workflow Step Execution Failure' },
