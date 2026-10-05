@@ -22,6 +22,7 @@ export const ARCHITECTURAL_RULES = {
       '@shn/data-access',
       '@shn/telemetry',
       '@shn/event-bus',
+      '@shn/auth-rbac',
     ]),
   },
   '@shn/error-catalog': {
@@ -30,17 +31,18 @@ export const ARCHITECTURAL_RULES = {
       '@shn/data-access',
       '@shn/telemetry',
       '@shn/event-bus',
+      '@shn/auth-rbac',
     ]),
   },
   '@shn/telemetry': {
     allowedRuntimeDeps: new Set([]),
     allowedWorkspaceDeps: new Set(['@shn/shared-kernel', '@shn/error-catalog']),
-    forbiddenWorkspaceDeps: new Set(['@shn/data-access', '@shn/event-bus']),
+    forbiddenWorkspaceDeps: new Set(['@shn/data-access', '@shn/event-bus', '@shn/auth-rbac']),
   },
   '@shn/data-access': {
     allowedRuntimeDeps: new Set(['pg']),
     allowedWorkspaceDeps: new Set(['@shn/shared-kernel', '@shn/error-catalog']),
-    forbiddenWorkspaceDeps: new Set(['@shn/telemetry', '@shn/event-bus']),
+    forbiddenWorkspaceDeps: new Set(['@shn/telemetry', '@shn/event-bus', '@shn/auth-rbac']),
   },
   '@shn/event-bus': {
     allowedRuntimeDeps: new Set([]),
@@ -49,6 +51,17 @@ export const ARCHITECTURAL_RULES = {
       '@shn/error-catalog',
       '@shn/telemetry',
       '@shn/data-access',
+    ]),
+    forbiddenWorkspaceDeps: new Set(['@shn/auth-rbac']),
+  },
+  '@shn/auth-rbac': {
+    allowedRuntimeDeps: new Set([]),
+    allowedWorkspaceDeps: new Set([
+      '@shn/shared-kernel',
+      '@shn/error-catalog',
+      '@shn/telemetry',
+      '@shn/data-access',
+      '@shn/event-bus',
     ]),
     forbiddenWorkspaceDeps: new Set([]),
   },

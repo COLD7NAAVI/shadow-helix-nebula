@@ -31,6 +31,12 @@ export {
   type CorrelationId,
   type CausationId,
   type TraceId,
+  type UserId,
+  type RoleId,
+  type PermissionId,
+  type SecretId,
+  type SessionId,
+  type SecretVersionId,
   isValidUUID,
   parseUUID,
   generateUUIDv4,
@@ -44,6 +50,12 @@ export {
   createEventId,
   createCorrelationId,
   createCausationId,
+  createUserId,
+  createRoleId,
+  createPermissionId,
+  createSecretId,
+  createSessionId,
+  createSecretVersionId,
 } from './primitives/identifiers.js';
 
 // Network Target Primitives & Anti-SSRF

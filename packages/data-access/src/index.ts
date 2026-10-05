@@ -91,3 +91,37 @@ export {
   type CreateDeadLetterInput,
   type ListDeadLettersOptions,
 } from './repositories/dead-letter-repository.js';
+
+export {
+  CredentialRepository,
+  type UserCredentialRecord,
+} from './repositories/credential-repository.js';
+
+export {
+  SessionRepository,
+  type SessionRecord,
+  type CreateSessionInput,
+} from './repositories/session-repository.js';
+
+export {
+  RoleRepository,
+  type RoleRecord,
+  type UserRoleRecord,
+} from './repositories/role-repository.js';
+
+export {
+  PermissionRepository,
+  type PermissionRecord,
+} from './repositories/permission-repository.js';
+
+export {
+  SecretsMetadataRepository,
+  type SecretMetadataRecord,
+  type CreateSecretMetadataInput,
+} from './repositories/secrets-metadata-repository.js';
+
+export {
+  SecretsVersionRepository,
+  type SecretVersionRecord,
+  type CreateSecretVersionInput,
+} from './repositories/secrets-version-repository.js';

@@ -11,9 +11,9 @@
     "build": "tsc --build",
     "typecheck": "tsc --build",
     "lint:deps": "node scripts/check-deps.js",
-    "test:unit": "npm run build && node --test packages/shared-kernel/test/**/*.test.ts packages/error-catalog/test/**/*.test.ts packages/data-access/test/unit/**/*.test.ts packages/telemetry/test/unit/**/*.test.ts packages/event-bus/test/unit/**/*.test.ts",
-    "test:integration": "npm run build && node --test packages/data-access/test/integration/**/*.test.ts packages/event-bus/test/integration/**/*.test.ts",
-    "test": "npm run build && node --test packages/shared-kernel/test/**/*.test.ts packages/error-catalog/test/**/*.test.ts packages/data-access/test/unit/**/*.test.ts packages/telemetry/test/unit/**/*.test.ts packages/event-bus/test/unit/**/*.test.ts packages/data-access/test/integration/**/*.test.ts packages/event-bus/test/integration/**/*.test.ts",
+    "test:unit": "npm run build && node --test packages/shared-kernel/test/**/*.test.ts packages/error-catalog/test/**/*.test.ts packages/data-access/test/unit/**/*.test.ts packages/telemetry/test/unit/**/*.test.ts packages/event-bus/test/unit/**/*.test.ts packages/auth-rbac/test/unit/**/*.test.ts",
+    "test:integration": "npm run build && node --test --test-concurrency=1 packages/data-access/test/integration/**/*.test.ts packages/event-bus/test/integration/**/*.test.ts packages/auth-rbac/test/integration/**/*.test.ts",
+    "test": "npm run build && node --test packages/shared-kernel/test/**/*.test.ts packages/error-catalog/test/**/*.test.ts packages/data-access/test/unit/**/*.test.ts packages/telemetry/test/unit/**/*.test.ts packages/event-bus/test/unit/**/*.test.ts packages/auth-rbac/test/unit/**/*.test.ts && node --test --test-concurrency=1 packages/data-access/test/integration/**/*.test.ts packages/event-bus/test/integration/**/*.test.ts packages/auth-rbac/test/integration/**/*.test.ts",
     "db:test:start": "powershell -ExecutionPolicy Bypass -File scripts/start-test-db.ps1",
     "db:test:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-test-db.ps1"
   },

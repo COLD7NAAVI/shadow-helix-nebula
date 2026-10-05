@@ -21,6 +21,12 @@ export type EventId = Brand<string, 'EventId'>;
 export type CorrelationId = Brand<string, 'CorrelationId'>;
 export type CausationId = Brand<string, 'CausationId'>;
 export type TraceId = Brand<string, 'TraceId'>;
+export type UserId = Brand<string, 'UserId'>;
+export type RoleId = Brand<string, 'RoleId'>;
+export type PermissionId = Brand<string, 'PermissionId'>;
+export type SecretId = Brand<string, 'SecretId'>;
+export type SessionId = Brand<string, 'SessionId'>;
+export type SecretVersionId = Brand<string, 'SecretVersionId'>;
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -95,4 +101,28 @@ export function createCorrelationId(id?: string): Result<CorrelationId, string> 
 
 export function createCausationId(id?: string): Result<CausationId, string> {
   return parseUUID<CausationId>(id ?? generateUUIDv4(), 'CausationId');
+}
+
+export function createUserId(id?: string): Result<UserId, string> {
+  return parseUUID<UserId>(id ?? generateUUIDv4(), 'UserId');
+}
+
+export function createRoleId(id?: string): Result<RoleId, string> {
+  return parseUUID<RoleId>(id ?? generateUUIDv4(), 'RoleId');
+}
+
+export function createPermissionId(id?: string): Result<PermissionId, string> {
+  return parseUUID<PermissionId>(id ?? generateUUIDv4(), 'PermissionId');
+}
+
+export function createSecretId(id?: string): Result<SecretId, string> {
+  return parseUUID<SecretId>(id ?? generateUUIDv4(), 'SecretId');
+}
+
+export function createSessionId(id?: string): Result<SessionId, string> {
+  return parseUUID<SessionId>(id ?? generateUUIDv4(), 'SessionId');
+}
+
+export function createSecretVersionId(id?: string): Result<SecretVersionId, string> {
+  return parseUUID<SecretVersionId>(id ?? generateUUIDv4(), 'SecretVersionId');
 }

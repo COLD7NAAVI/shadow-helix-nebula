@@ -56,6 +56,7 @@ export function createTestPool(dbName: string = 'shn_test'): DatabasePool {
 }
 
 export async function resetDatabase(pool: DatabasePool): Promise<void> {
+  await pool.query('DROP SCHEMA IF EXISTS secrets CASCADE;');
   await pool.query('DROP SCHEMA IF EXISTS events CASCADE;');
   await pool.query('DROP SCHEMA IF EXISTS audit CASCADE;');
   await pool.query('DROP SCHEMA IF EXISTS workspace CASCADE;');
