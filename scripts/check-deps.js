@@ -24,6 +24,7 @@ export const ARCHITECTURAL_RULES = {
       '@shn/event-bus',
       '@shn/auth-rbac',
       '@shn/scope-gatekeeper',
+      '@shn/execution-supervisor',
     ]),
   },
   '@shn/error-catalog': {
@@ -34,17 +35,30 @@ export const ARCHITECTURAL_RULES = {
       '@shn/event-bus',
       '@shn/auth-rbac',
       '@shn/scope-gatekeeper',
+      '@shn/execution-supervisor',
     ]),
   },
   '@shn/telemetry': {
     allowedRuntimeDeps: new Set([]),
     allowedWorkspaceDeps: new Set(['@shn/shared-kernel', '@shn/error-catalog']),
-    forbiddenWorkspaceDeps: new Set(['@shn/data-access', '@shn/event-bus', '@shn/auth-rbac', '@shn/scope-gatekeeper']),
+    forbiddenWorkspaceDeps: new Set([
+      '@shn/data-access',
+      '@shn/event-bus',
+      '@shn/auth-rbac',
+      '@shn/scope-gatekeeper',
+      '@shn/execution-supervisor',
+    ]),
   },
   '@shn/data-access': {
     allowedRuntimeDeps: new Set(['pg']),
     allowedWorkspaceDeps: new Set(['@shn/shared-kernel', '@shn/error-catalog']),
-    forbiddenWorkspaceDeps: new Set(['@shn/telemetry', '@shn/event-bus', '@shn/auth-rbac', '@shn/scope-gatekeeper']),
+    forbiddenWorkspaceDeps: new Set([
+      '@shn/telemetry',
+      '@shn/event-bus',
+      '@shn/auth-rbac',
+      '@shn/scope-gatekeeper',
+      '@shn/execution-supervisor',
+    ]),
   },
   '@shn/event-bus': {
     allowedRuntimeDeps: new Set([]),
@@ -54,7 +68,11 @@ export const ARCHITECTURAL_RULES = {
       '@shn/telemetry',
       '@shn/data-access',
     ]),
-    forbiddenWorkspaceDeps: new Set(['@shn/auth-rbac', '@shn/scope-gatekeeper']),
+    forbiddenWorkspaceDeps: new Set([
+      '@shn/auth-rbac',
+      '@shn/scope-gatekeeper',
+      '@shn/execution-supervisor',
+    ]),
   },
   '@shn/auth-rbac': {
     allowedRuntimeDeps: new Set([]),
@@ -65,7 +83,7 @@ export const ARCHITECTURAL_RULES = {
       '@shn/data-access',
       '@shn/event-bus',
     ]),
-    forbiddenWorkspaceDeps: new Set(['@shn/scope-gatekeeper']),
+    forbiddenWorkspaceDeps: new Set(['@shn/scope-gatekeeper', '@shn/execution-supervisor']),
   },
   '@shn/scope-gatekeeper': {
     allowedRuntimeDeps: new Set([]),
@@ -76,6 +94,19 @@ export const ARCHITECTURAL_RULES = {
       '@shn/data-access',
       '@shn/event-bus',
       '@shn/auth-rbac',
+    ]),
+    forbiddenWorkspaceDeps: new Set(['@shn/execution-supervisor']),
+  },
+  '@shn/execution-supervisor': {
+    allowedRuntimeDeps: new Set([]),
+    allowedWorkspaceDeps: new Set([
+      '@shn/shared-kernel',
+      '@shn/error-catalog',
+      '@shn/telemetry',
+      '@shn/data-access',
+      '@shn/event-bus',
+      '@shn/auth-rbac',
+      '@shn/scope-gatekeeper',
     ]),
     forbiddenWorkspaceDeps: new Set([]),
   },

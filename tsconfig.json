@@ -7,6 +7,7 @@
     { "path": "./packages/telemetry" },
     { "path": "./packages/event-bus" },
     { "path": "./packages/auth-rbac" },
-    { "path": "./packages/scope-gatekeeper" }
+    { "path": "./packages/scope-gatekeeper" },
+    { "path": "./packages/execution-supervisor" }
   ]
 }

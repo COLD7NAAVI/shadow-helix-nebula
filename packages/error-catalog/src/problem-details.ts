@@ -83,6 +83,11 @@ const DEFAULT_ERROR_METADATA: Record<ErrorCodeType, { status: number; title: str
   [ErrorCode.EXEC_TIMEOUT_EXCEEDED]: { status: 504, title: 'Tool Execution Timeout Ceilings Exceeded' },
   [ErrorCode.EXEC_SANDBOX_BREACH]: { status: 500, title: 'Sandbox Boundary Security Breach' },
   [ErrorCode.EXEC_COMMAND_INJECTION_REJECTED]: { status: 400, title: 'Command Injection Syntax Rejected' },
+  [ErrorCode.EXEC_OUTPUT_LIMIT_EXCEEDED]: { status: 413, title: 'Execution Output Byte Limits Exceeded' },
+  [ErrorCode.EXEC_PROTOCOL_VIOLATION]: { status: 400, title: 'Worker Protocol Message Violation' },
+  [ErrorCode.EXEC_INVALID_STATE_TRANSITION]: { status: 409, title: 'Illegal Execution State Transition' },
+  [ErrorCode.EXEC_CANCELLED]: { status: 499, title: 'Execution Request Cancelled by Operator' },
+  [ErrorCode.EXEC_RESOURCE_EXHAUSTED]: { status: 429, title: 'Execution Resource Limits Exhausted' },
 
   [ErrorCode.STORAGE_NOT_FOUND]: { status: 404, title: 'Requested Resource Not Found' },
   [ErrorCode.STORAGE_INTEGRITY_MISMATCH]: { status: 500, title: 'Cryptographic Evidence Integrity Mismatch' },

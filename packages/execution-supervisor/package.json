@@ -1,0 +1,35 @@
+{
+  "name": "@shn/execution-supervisor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shadow : Helix Nebula (SHN) — Execution Supervisor & Sandboxed Worker",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build",
+    "test:unit": "node --test test/unit/**/*.test.ts",
+    "test:integration": "node --test --test-concurrency=1 test/integration/**/*.test.ts",
+    "test": "node --test test/unit/**/*.test.ts && node --test --test-concurrency=1 test/integration/**/*.test.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@shn/auth-rbac": "*",
+    "@shn/data-access": "*",
+    "@shn/error-catalog": "*",
+    "@shn/event-bus": "*",
+    "@shn/scope-gatekeeper": "*",
+    "@shn/shared-kernel": "*",
+    "@shn/telemetry": "*",
+    "@types/node": "^26.6.2",
+    "typescript": "^5.9.3"
+  }
+}

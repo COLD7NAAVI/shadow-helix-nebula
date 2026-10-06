@@ -132,3 +132,15 @@ export {
   type CreateScopeInput,
   type ScopeStatus,
 } from './repositories/scope-repository.js';
+
+export {
+  ExecutionRepository,
+  type ExecutionRecord,
+  type ExecutionAttemptRecord,
+  type ExecutionArtifactRecord,
+  type WorkerLeaseRecord,
+  type CreateExecutionInput,
+  type CreateAttemptInput,
+  type CreateArtifactInput,
+  type TransitionStateUpdates,
+} from './repositories/execution-repository.js';

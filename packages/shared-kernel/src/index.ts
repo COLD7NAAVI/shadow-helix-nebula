@@ -38,6 +38,8 @@ export {
   type SessionId,
   type SecretVersionId,
   type ScopeId,
+  type ExecutionId,
+  type WorkerId,
   isValidUUID,
   parseUUID,
   generateUUIDv4,
@@ -58,6 +60,8 @@ export {
   createSessionId,
   createSecretVersionId,
   createScopeId,
+  createExecutionId,
+  createWorkerId,
 } from './primitives/identifiers.js';
 
 // Network Target Primitives & Anti-SSRF
