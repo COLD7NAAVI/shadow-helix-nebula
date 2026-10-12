@@ -155,3 +155,25 @@ export {
   type ListCapabilitiesFilter,
   type ListAdaptersFilter,
 } from './repositories/capability-repository.js';
+
+export {
+  AssetRepository,
+  type AssetRecord,
+  type AssetType,
+  type AssetCriticality,
+  type AssetStatus,
+  type CreateAssetParams,
+  type UpdateAssetParams,
+  type ListAssetOptions,
+} from './repositories/asset-repository.js';
+
+export {
+  FindingRepository,
+  type FindingRecord,
+  type FindingSeverity,
+  type FindingStatus,
+  type FindingStatusTransitionRecord,
+  type CreateFindingParams,
+  type ListFindingOptions,
+  type TransitionStatusParams,
+} from './repositories/finding-repository.js';

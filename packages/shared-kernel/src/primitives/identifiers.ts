@@ -84,8 +84,12 @@ export function createEngagementId(id?: string): Result<EngagementId, string> {
   return parseUUID<EngagementId>(id ?? generateUUIDv4(), 'EngagementId');
 }
 
+export function createAssetId(id?: string): Result<AssetId, string> {
+  return parseUUID<AssetId>(id ?? generateUUIDv7(), 'AssetId');
+}
+
 export function createFindingId(id?: string): Result<FindingId, string> {
-  return parseUUID<FindingId>(id ?? generateUUIDv4(), 'FindingId');
+  return parseUUID<FindingId>(id ?? generateUUIDv7(), 'FindingId');
 }
 
 export function createTaskId(id?: string): Result<TaskId, string> {

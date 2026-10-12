@@ -49,6 +49,7 @@ export {
   createWorkspaceId,
   createOrganizationId,
   createEngagementId,
+  createAssetId,
   createFindingId,
   createTaskId,
   createRunId,

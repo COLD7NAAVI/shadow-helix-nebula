@@ -101,6 +101,16 @@ const DEFAULT_ERROR_METADATA: Record<ErrorCodeType, { status: number; title: str
   [ErrorCode.ADAPTER_REVOKED]: { status: 403, title: 'Tool Adapter Revoked' },
   [ErrorCode.ADAPTER_EXECUTION_FAILED]: { status: 500, title: 'Tool Adapter Execution Preparation Failed' },
 
+  [ErrorCode.ASSET_NOT_FOUND]: { status: 404, title: 'Target Asset Not Found' },
+  [ErrorCode.ASSET_ALREADY_EXISTS]: { status: 409, title: 'Asset Already Exists in Workspace' },
+  [ErrorCode.ASSET_INVALID_TYPE]: { status: 400, title: 'Invalid Asset Identifier Type' },
+  [ErrorCode.ASSET_VALIDATION_FAILED]: { status: 422, title: 'Asset Validation Failed' },
+
+  [ErrorCode.FINDING_NOT_FOUND]: { status: 404, title: 'Finding Not Found' },
+  [ErrorCode.FINDING_INVALID_STATE_TRANSITION]: { status: 409, title: 'Illegal Finding State Transition' },
+  [ErrorCode.FINDING_EVIDENCE_HASH_INVALID]: { status: 400, title: 'Forensic Evidence Hash Invalid or Missing' },
+  [ErrorCode.FINDING_CVSS_INVALID]: { status: 400, title: 'Invalid CVSS Score or Vector' },
+
   [ErrorCode.STORAGE_NOT_FOUND]: { status: 404, title: 'Requested Resource Not Found' },
   [ErrorCode.STORAGE_INTEGRITY_MISMATCH]: { status: 500, title: 'Cryptographic Evidence Integrity Mismatch' },
   [ErrorCode.STORAGE_CONCURRENCY_CONFLICT]: { status: 409, title: 'Optimistic Concurrency State Conflict' },

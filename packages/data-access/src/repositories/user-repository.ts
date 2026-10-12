@@ -64,6 +64,21 @@ export class UserRepository {
     return result.rows[0] ?? null;
   }
 
+  async findFirstByEmail(email: string): Promise<UserRecord | null> {
+    if (typeof email !== 'string' || !email.includes('@')) {
+      throw new Error(`Invalid email address: "${email}"`);
+    }
+
+    const result = await this.db.query<UserRecord>(
+      `SELECT id, organization_id, email, display_name, status, created_at, updated_at
+       FROM iam.users
+       WHERE email = $1
+       LIMIT 1;`,
+      [email.trim().toLowerCase()]
+    );
+    return result.rows[0] ?? null;
+  }
+
   async listByOrganization(organizationId: OrganizationId): Promise<UserRecord[]> {
     if (typeof organizationId !== 'string' || !isValidUUID(organizationId)) {
       throw new Error(`Invalid OrganizationId: must be a valid UUID string (received: ${String(organizationId)})`);
