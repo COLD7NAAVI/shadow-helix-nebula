@@ -25,6 +25,7 @@ export const ARCHITECTURAL_RULES = {
       '@shn/auth-rbac',
       '@shn/scope-gatekeeper',
       '@shn/execution-supervisor',
+      '@shn/capability-registry',
     ]),
   },
   '@shn/error-catalog': {
@@ -36,6 +37,7 @@ export const ARCHITECTURAL_RULES = {
       '@shn/auth-rbac',
       '@shn/scope-gatekeeper',
       '@shn/execution-supervisor',
+      '@shn/capability-registry',
     ]),
   },
   '@shn/telemetry': {
@@ -47,6 +49,7 @@ export const ARCHITECTURAL_RULES = {
       '@shn/auth-rbac',
       '@shn/scope-gatekeeper',
       '@shn/execution-supervisor',
+      '@shn/capability-registry',
     ]),
   },
   '@shn/data-access': {
@@ -58,6 +61,7 @@ export const ARCHITECTURAL_RULES = {
       '@shn/auth-rbac',
       '@shn/scope-gatekeeper',
       '@shn/execution-supervisor',
+      '@shn/capability-registry',
     ]),
   },
   '@shn/event-bus': {
@@ -72,6 +76,7 @@ export const ARCHITECTURAL_RULES = {
       '@shn/auth-rbac',
       '@shn/scope-gatekeeper',
       '@shn/execution-supervisor',
+      '@shn/capability-registry',
     ]),
   },
   '@shn/auth-rbac': {
@@ -83,7 +88,11 @@ export const ARCHITECTURAL_RULES = {
       '@shn/data-access',
       '@shn/event-bus',
     ]),
-    forbiddenWorkspaceDeps: new Set(['@shn/scope-gatekeeper', '@shn/execution-supervisor']),
+    forbiddenWorkspaceDeps: new Set([
+      '@shn/scope-gatekeeper',
+      '@shn/execution-supervisor',
+      '@shn/capability-registry',
+    ]),
   },
   '@shn/scope-gatekeeper': {
     allowedRuntimeDeps: new Set([]),
@@ -95,7 +104,10 @@ export const ARCHITECTURAL_RULES = {
       '@shn/event-bus',
       '@shn/auth-rbac',
     ]),
-    forbiddenWorkspaceDeps: new Set(['@shn/execution-supervisor']),
+    forbiddenWorkspaceDeps: new Set([
+      '@shn/execution-supervisor',
+      '@shn/capability-registry',
+    ]),
   },
   '@shn/execution-supervisor': {
     allowedRuntimeDeps: new Set([]),
@@ -107,6 +119,20 @@ export const ARCHITECTURAL_RULES = {
       '@shn/event-bus',
       '@shn/auth-rbac',
       '@shn/scope-gatekeeper',
+    ]),
+    forbiddenWorkspaceDeps: new Set(['@shn/capability-registry']),
+  },
+  '@shn/capability-registry': {
+    allowedRuntimeDeps: new Set([]),
+    allowedWorkspaceDeps: new Set([
+      '@shn/shared-kernel',
+      '@shn/error-catalog',
+      '@shn/telemetry',
+      '@shn/data-access',
+      '@shn/event-bus',
+      '@shn/auth-rbac',
+      '@shn/scope-gatekeeper',
+      '@shn/execution-supervisor',
     ]),
     forbiddenWorkspaceDeps: new Set([]),
   },

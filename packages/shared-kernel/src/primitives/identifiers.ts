@@ -30,6 +30,8 @@ export type SecretVersionId = Brand<string, 'SecretVersionId'>;
 export type ScopeId = Brand<string, 'ScopeId'>;
 export type ExecutionId = Brand<string, 'ExecutionId'>;
 export type WorkerId = Brand<string, 'WorkerId'>;
+export type CapabilityId = Brand<string, 'CapabilityId'>;
+export type AdapterId = Brand<string, 'AdapterId'>;
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -140,4 +142,35 @@ export function createExecutionId(id?: string): Result<ExecutionId, string> {
 
 export function createWorkerId(id?: string): Result<WorkerId, string> {
   return parseUUID<WorkerId>(id ?? generateUUIDv4(), 'WorkerId');
+}
+
+const CAPABILITY_URI_REGEX = /^(?:shn:\/\/capabilities\/[a-z0-9_.-]+(?:\/[a-z0-9_.-]+)+|capability:[a-z0-9_.-]+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
+const ADAPTER_ID_REGEX = /^(?:adapter:[a-z0-9_.-]+|[a-z0-9_.-]+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
+
+export function parseCapabilityId(id: string): Result<CapabilityId, string> {
+  if (!id || typeof id !== 'string' || !CAPABILITY_URI_REGEX.test(id)) {
+    return err(`Invalid CapabilityId: must be a canonical URI or UUID format (received '${id}')`);
+  }
+  return ok(id as CapabilityId);
+}
+
+export function createCapabilityId(id?: string): Result<CapabilityId, string> {
+  if (!id) {
+    return ok(generateUUIDv7() as CapabilityId);
+  }
+  return parseCapabilityId(id);
+}
+
+export function parseAdapterId(id: string): Result<AdapterId, string> {
+  if (!id || typeof id !== 'string' || !ADAPTER_ID_REGEX.test(id)) {
+    return err(`Invalid AdapterId: must be a valid identifier format (received '${id}')`);
+  }
+  return ok(id as AdapterId);
+}
+
+export function createAdapterId(id?: string): Result<AdapterId, string> {
+  if (!id) {
+    return ok(generateUUIDv4() as AdapterId);
+  }
+  return parseAdapterId(id);
 }

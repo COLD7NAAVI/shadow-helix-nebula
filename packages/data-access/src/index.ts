@@ -144,3 +144,14 @@ export {
   type CreateArtifactInput,
   type TransitionStateUpdates,
 } from './repositories/execution-repository.js';
+
+export {
+  CapabilityRepository,
+  type CapabilityRecord,
+  type AdapterRecord,
+  type WorkspaceBindingRecord,
+  type CreateCapabilityInput,
+  type CreateAdapterInput,
+  type ListCapabilitiesFilter,
+  type ListAdaptersFilter,
+} from './repositories/capability-repository.js';

@@ -40,6 +40,8 @@ export {
   type ScopeId,
   type ExecutionId,
   type WorkerId,
+  type CapabilityId,
+  type AdapterId,
   isValidUUID,
   parseUUID,
   generateUUIDv4,
@@ -62,6 +64,10 @@ export {
   createScopeId,
   createExecutionId,
   createWorkerId,
+  parseCapabilityId,
+  createCapabilityId,
+  parseAdapterId,
+  createAdapterId,
 } from './primitives/identifiers.js';
 
 // Network Target Primitives & Anti-SSRF

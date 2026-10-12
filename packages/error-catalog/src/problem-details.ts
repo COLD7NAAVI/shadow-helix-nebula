@@ -89,6 +89,18 @@ const DEFAULT_ERROR_METADATA: Record<ErrorCodeType, { status: number; title: str
   [ErrorCode.EXEC_CANCELLED]: { status: 499, title: 'Execution Request Cancelled by Operator' },
   [ErrorCode.EXEC_RESOURCE_EXHAUSTED]: { status: 429, title: 'Execution Resource Limits Exhausted' },
 
+  [ErrorCode.CAP_NOT_FOUND]: { status: 404, title: 'Requested Capability Not Found' },
+  [ErrorCode.CAP_DISABLED]: { status: 403, title: 'Capability Disabled in Context' },
+  [ErrorCode.CAP_REVOKED]: { status: 403, title: 'Capability Revoked' },
+  [ErrorCode.CAP_VERSION_INCOMPATIBLE]: { status: 400, title: 'Incompatible Capability Version' },
+  [ErrorCode.CAP_ALREADY_EXISTS]: { status: 409, title: 'Capability Already Registered' },
+  [ErrorCode.CAP_MALFORMED_MANIFEST]: { status: 400, title: 'Malformed Capability Manifest' },
+  [ErrorCode.ADAPTER_NOT_FOUND]: { status: 404, title: 'Requested Tool Adapter Not Found' },
+  [ErrorCode.ADAPTER_INCOMPATIBLE]: { status: 400, title: 'Tool Adapter Incompatible with Capability or Host' },
+  [ErrorCode.ADAPTER_DISABLED]: { status: 403, title: 'Tool Adapter Disabled' },
+  [ErrorCode.ADAPTER_REVOKED]: { status: 403, title: 'Tool Adapter Revoked' },
+  [ErrorCode.ADAPTER_EXECUTION_FAILED]: { status: 500, title: 'Tool Adapter Execution Preparation Failed' },
+
   [ErrorCode.STORAGE_NOT_FOUND]: { status: 404, title: 'Requested Resource Not Found' },
   [ErrorCode.STORAGE_INTEGRITY_MISMATCH]: { status: 500, title: 'Cryptographic Evidence Integrity Mismatch' },
   [ErrorCode.STORAGE_CONCURRENCY_CONFLICT]: { status: 409, title: 'Optimistic Concurrency State Conflict' },
