@@ -15,6 +15,8 @@ import {
   AssetRepository,
   FindingRepository,
   ExecutionRepository,
+  ScopeRepository,
+  AuditEventRepository,
 } from '@shn/data-access';
 import { SecurityContextSigner, AuthorizationService } from '@shn/auth-rbac';
 import { TenancyValidator } from '@shn/scope-gatekeeper';
@@ -34,6 +36,8 @@ import { AssetController } from './controllers/asset.controller.js';
 import { FindingController } from './controllers/finding.controller.js';
 import { CapabilityController } from './controllers/capability.controller.js';
 import { ExecutionController } from './controllers/execution.controller.js';
+import { ScopeController } from './controllers/scope.controller.js';
+import { AuditController } from './controllers/audit.controller.js';
 
 export interface AppDependencies {
   pool?: DatabasePool | undefined;
@@ -45,6 +49,8 @@ export interface AppDependencies {
   assetRepo?: AssetRepository | undefined;
   findingRepo?: FindingRepository | undefined;
   executionRepo?: ExecutionRepository | undefined;
+  scopeRepo?: ScopeRepository | undefined;
+  auditRepo?: AuditEventRepository | undefined;
   assetService?: AssetInventoryService | undefined;
   findingService?: FindingLifecycleService | undefined;
   capabilityRegistry?: CapabilityRegistry | undefined;
@@ -54,6 +60,7 @@ export interface AppDependencies {
   authService?: AuthorizationService | undefined;
   config?: Partial<GatewayConfig> | undefined;
 }
+
 
 export function createIngressApplication(deps: AppDependencies): IngressServer {
   const router = new Router();
@@ -134,7 +141,23 @@ export function createIngressApplication(deps: AppDependencies): IngressServer {
       executionRepo: deps.executionRepo,
     });
     router.post('/api/v1/workspaces/:workspaceId/executions', authMiddleware, tenancyMiddleware, (req, res) => execCtrl.execute(req, res));
+    router.get('/api/v1/workspaces/:workspaceId/executions', authMiddleware, tenancyMiddleware, (req, res) => execCtrl.list(req, res));
     router.get('/api/v1/workspaces/:workspaceId/executions/:executionId', authMiddleware, tenancyMiddleware, (req, res) => execCtrl.get(req, res));
+  }
+
+  // 8. Scope Boundaries
+  if (deps.scopeRepo) {
+    const scopeCtrl = new ScopeController({ scopeRepo: deps.scopeRepo });
+    router.get('/api/v1/workspaces/:workspaceId/scopes', authMiddleware, tenancyMiddleware, (req, res) => scopeCtrl.list(req, res));
+    router.post('/api/v1/workspaces/:workspaceId/scopes', authMiddleware, tenancyMiddleware, (req, res) => scopeCtrl.create(req, res));
+    router.get('/api/v1/workspaces/:workspaceId/scopes/:scopeId', authMiddleware, tenancyMiddleware, (req, res) => scopeCtrl.get(req, res));
+  }
+
+  // 9. Audit Activity
+  if (deps.auditRepo) {
+    const auditCtrl = new AuditController({ auditRepo: deps.auditRepo });
+    router.get('/api/v1/workspaces/:workspaceId/audit', authMiddleware, tenancyMiddleware, (req, res) => auditCtrl.list(req, res));
+    router.get('/api/v1/workspaces/:workspaceId/audit/:eventId', authMiddleware, tenancyMiddleware, (req, res) => auditCtrl.get(req, res));
   }
 
   return new IngressServer({

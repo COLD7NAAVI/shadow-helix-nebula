@@ -1,0 +1,236 @@
+/**
+ * Shadow : Helix Nebula (SHN) — Design System Design Tokens
+ *
+ * Sovereign Cybersecurity Workstation Aesthetics:
+ * Deep space surfaces, refined glassmorphic layers, radiant nebula accents,
+ * Day/Night/Ambient themes, and accessible typography.
+ */
+
+:root {
+  /* Common Brand Colors */
+  --shn-brand-cyan: #06b6d4;
+  --shn-brand-violet: #8b5cf6;
+  --shn-brand-magenta: #ec4899;
+  --shn-brand-emerald: #10b981;
+  --shn-brand-amber: #f59e0b;
+  --shn-brand-red: #ef4444;
+  --shn-brand-blue: #3b82f6;
+
+  /* Severities */
+  --color-critical: #ef4444;
+  --color-critical-bg: rgba(239, 68, 68, 0.15);
+  --color-critical-border: rgba(239, 68, 68, 0.35);
+
+  --color-high: #f97316;
+  --color-high-bg: rgba(249, 115, 22, 0.15);
+  --color-high-border: rgba(249, 115, 22, 0.35);
+
+  --color-medium: #f59e0b;
+  --color-medium-bg: rgba(245, 158, 11, 0.15);
+  --color-medium-border: rgba(245, 158, 11, 0.35);
+
+  --color-low: #06b6d4;
+  --color-low-bg: rgba(6, 182, 212, 0.15);
+  --color-low-border: rgba(6, 182, 212, 0.35);
+
+  --color-info: #64748b;
+  --color-info-bg: rgba(100, 116, 139, 0.15);
+  --color-info-border: rgba(100, 116, 139, 0.35);
+
+  /* Status Indicators */
+  --status-active: #10b981;
+  --status-active-glow: rgba(16, 185, 129, 0.4);
+  --status-warning: #f59e0b;
+  --status-failed: #ef4444;
+  --status-running: #06b6d4;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  --font-display: 'Outfit', 'Inter', -apple-system, sans-serif;
+
+  /* Radius & Transitions */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  --transition-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-smooth: 400ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Default Active Accent (Cyan) */
+  --accent-primary: #06b6d4;
+  --accent-primary-hover: #22d3ee;
+  --accent-glow: rgba(6, 182, 212, 0.35);
+  --accent-subtle: rgba(6, 182, 212, 0.12);
+  --accent-border: rgba(6, 182, 212, 0.3);
+
+  /* Default Background Opacity */
+  --bg-nebula-opacity: 0.85;
+  --blur-glass: 16px;
+}
+
+/* =========================================================================
+   THEME 1: NIGHT (Deep-Space Dark Cybersecurity Workstation) - DEFAULT
+   ========================================================================= */
+:root,
+[data-theme='night'] {
+  --bg-app: #030408;
+  --bg-surface: #0a0d18;
+  --bg-surface-elevated: #111728;
+  --bg-surface-glass: rgba(11, 15, 29, 0.75);
+  --bg-surface-glass-heavy: rgba(8, 12, 24, 0.88);
+  --bg-card: rgba(17, 24, 42, 0.7);
+  --bg-card-hover: rgba(24, 34, 60, 0.8);
+  --bg-input: rgba(6, 9, 18, 0.8);
+  --bg-terminal: #05070f;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.14);
+  --border-glass: rgba(255, 255, 255, 0.1);
+  --border-glow: rgba(139, 92, 246, 0.3);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-inverse: #020617;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.1);
+  --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.65), 0 0 1px rgba(255, 255, 255, 0.15);
+  --shadow-glow: 0 0 25px var(--accent-glow);
+}
+
+/* =========================================================================
+   THEME 2: DAY (Crisp, High-Contrast Professional Workstation)
+   ========================================================================= */
+[data-theme='day'] {
+  --bg-app: #f1f5f9;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #f8fafc;
+  --bg-surface-glass: rgba(255, 255, 255, 0.85);
+  --bg-surface-glass-heavy: rgba(255, 255, 255, 0.95);
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --bg-input: #ffffff;
+  --bg-terminal: #0f172a;
+
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-medium: rgba(0, 0, 0, 0.14);
+  --border-glass: rgba(0, 0, 0, 0.1);
+  --border-glow: rgba(6, 182, 212, 0.4);
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-inverse: #ffffff;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.12);
+  --shadow-glow: 0 0 15px rgba(6, 182, 212, 0.2);
+}
+
+/* =========================================================================
+   THEME 3: AMBIENT (Translucent Cosmic Glow & Atmospheric Luster)
+   ========================================================================= */
+[data-theme='ambient'] {
+  --bg-app: #060511;
+  --bg-surface: rgba(18, 14, 38, 0.6);
+  --bg-surface-elevated: rgba(28, 22, 58, 0.7);
+  --bg-surface-glass: rgba(19, 14, 42, 0.55);
+  --bg-surface-glass-heavy: rgba(15, 10, 34, 0.75);
+  --bg-card: rgba(26, 19, 56, 0.5);
+  --bg-card-hover: rgba(38, 28, 80, 0.65);
+  --bg-input: rgba(12, 9, 28, 0.7);
+  --bg-terminal: #060312;
+
+  --border-subtle: rgba(168, 85, 247, 0.15);
+  --border-medium: rgba(168, 85, 247, 0.25);
+  --border-glass: rgba(168, 85, 247, 0.2);
+  --border-glow: rgba(236, 72, 153, 0.45);
+
+  --text-primary: #fdf4ff;
+  --text-secondary: #d8b4fe;
+  --text-muted: #9333ea;
+  --text-inverse: #0f0a1c;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 24px rgba(88, 28, 135, 0.3);
+  --shadow-lg: 0 10px 36px rgba(112, 26, 117, 0.4);
+  --shadow-glow: 0 0 35px rgba(168, 85, 247, 0.45);
+}
+
+/* =========================================================================
+   ACCENT PALETTES PERSONALIZATION
+   ========================================================================= */
+[data-accent='violet'] {
+  --accent-primary: #8b5cf6;
+  --accent-primary-hover: #a78bfa;
+  --accent-glow: rgba(139, 92, 246, 0.4);
+  --accent-subtle: rgba(139, 92, 246, 0.15);
+  --accent-border: rgba(139, 92, 246, 0.35);
+}
+
+[data-accent='magenta'] {
+  --accent-primary: #ec4899;
+  --accent-primary-hover: #f472b6;
+  --accent-glow: rgba(236, 72, 153, 0.4);
+  --accent-subtle: rgba(236, 72, 153, 0.15);
+  --accent-border: rgba(236, 72, 153, 0.35);
+}
+
+[data-accent='emerald'] {
+  --accent-primary: #10b981;
+  --accent-primary-hover: #34d399;
+  --accent-glow: rgba(16, 185, 129, 0.4);
+  --accent-subtle: rgba(16, 185, 129, 0.15);
+  --accent-border: rgba(16, 185, 129, 0.35);
+}
+
+[data-accent='amber'] {
+  --accent-primary: #f59e0b;
+  --accent-primary-hover: #fbbf24;
+  --accent-glow: rgba(245, 158, 11, 0.4);
+  --accent-subtle: rgba(245, 158, 11, 0.15);
+  --accent-border: rgba(245, 158, 11, 0.35);
+}
+
+/* Typography Preferences */
+[data-font='mono'] body {
+  font-family: var(--font-mono) !important;
+}
+
+/* Sidebar Density Preferences */
+[data-density='compact'] {
+  --nav-item-padding: 6px 10px;
+  --nav-icon-size: 16px;
+  --table-cell-padding: 8px 12px;
+}
+
+[data-density='comfortable'] {
+  --nav-item-padding: 10px 14px;
+  --nav-icon-size: 20px;
+  --table-cell-padding: 14px 16px;
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+[data-reduced-motion='true'] *,
+[data-reduced-motion='true'] *::before,
+[data-reduced-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

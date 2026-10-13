@@ -21,4 +21,6 @@ export * from './controllers/asset.controller.js';
 export * from './controllers/finding.controller.js';
 export * from './controllers/capability.controller.js';
 export * from './controllers/execution.controller.js';
+export * from './controllers/scope.controller.js';
+export * from './controllers/audit.controller.js';
 export * from './cli/cli-runner.js';

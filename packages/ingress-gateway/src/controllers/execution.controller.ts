@@ -135,4 +135,24 @@ export class ExecutionController {
 
     res.status(200).json(record);
   }
+
+  async list(req: IngressRequest, res: IngressResponse): Promise<void> {
+    const workspaceId = req.workspaceId as WorkspaceId;
+    if (!this.executionRepo) {
+      const problem = createProblemDetails({
+        errorCode: ErrorCode.STORAGE_NOT_FOUND,
+        detail: 'Execution repository not configured on gateway.',
+        instance: req.path,
+        correlationId: req.correlationId,
+        customStatus: 501,
+      });
+      sendProblemDetails(res, problem);
+      return;
+    }
+
+    const limit = req.query['limit'] ? parseInt(req.query['limit'], 10) : 50;
+    const offset = req.query['offset'] ? parseInt(req.query['offset'], 10) : 0;
+    const records = await this.executionRepo.listByWorkspace(workspaceId, limit, offset);
+    res.status(200).json(records);
+  }
 }

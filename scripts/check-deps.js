@@ -166,7 +166,22 @@ export const ARCHITECTURAL_RULES = {
     ]),
     forbiddenWorkspaceDeps: new Set([]),
   },
+  '@shn/web-console': {
+    allowedRuntimeDeps: new Set([]),
+    allowedWorkspaceDeps: new Set(['@shn/shared-kernel', '@shn/error-catalog']),
+    forbiddenWorkspaceDeps: new Set([
+      '@shn/data-access',
+      '@shn/event-bus',
+      '@shn/auth-rbac',
+      '@shn/scope-gatekeeper',
+      '@shn/execution-supervisor',
+      '@shn/capability-registry',
+      '@shn/asset-inventory',
+      '@shn/ingress-gateway',
+    ]),
+  },
 };
+
 
 export function auditDependencies(packagesDir = PACKAGES_DIR) {
   const violations = [];

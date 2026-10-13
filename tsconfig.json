@@ -11,6 +11,7 @@
     { "path": "./packages/execution-supervisor" },
     { "path": "./packages/capability-registry" },
     { "path": "./packages/asset-inventory" },
-    { "path": "./packages/ingress-gateway" }
+    { "path": "./packages/ingress-gateway" },
+    { "path": "./packages/web-console" }
   ]
 }

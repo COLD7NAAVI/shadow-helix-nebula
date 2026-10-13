@@ -81,8 +81,14 @@ function normalizeBoundaries(b: unknown): ScopeInclusions {
     const resources: string[] = [];
 
     for (const item of b) {
-      if (typeof item !== 'string') continue;
-      const s = item.trim();
+      let s: string;
+      if (typeof item === 'string') {
+        s = item.trim();
+      } else if (item && typeof item === 'object' && 'value' in item && typeof (item as Record<string, unknown>).value === 'string') {
+        s = ((item as Record<string, unknown>).value as string).trim();
+      } else {
+        continue;
+      }
       if (s.startsWith('http://') || s.startsWith('https://')) {
         urls.push(s);
       } else if (s.includes('/') || /^\d+\.\d+\.\d+\.\d+$/.test(s) || s.includes(':')) {

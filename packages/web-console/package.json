@@ -1,0 +1,26 @@
+{
+  "name": "@shn/web-console",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shadow : Helix Nebula (SHN) — Sovereign Cybersecurity Web Console",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "bundle": "vite build",
+    "typecheck": "tsc --build",
+    "dev": "vite",
+    "preview": "vite preview",
+    "test:unit": "node --test test/unit/**/*.test.ts",
+    "test": "node --test test/unit/**/*.test.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@shn/error-catalog": "*",
+    "@shn/shared-kernel": "*",
+    "@types/node": "^26.6.2",
+    "typescript": "^5.9.3",
+    "vite": "^6.2.0"
+  }
+}
