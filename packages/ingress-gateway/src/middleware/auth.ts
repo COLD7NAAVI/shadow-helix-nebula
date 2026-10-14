@@ -26,7 +26,10 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions): Middleware
   const { signer, authService, workspaceRepo, optional = false } = options;
 
   return async (req: IngressRequest, res: IngressResponse, next: () => Promise<void>) => {
-    const authHeader = req.headers['authorization'];
+    let authHeader = req.headers['authorization'];
+    if ((!authHeader || typeof authHeader !== 'string') && req.query.token) {
+      authHeader = `Bearer ${req.query.token}`;
+    }
 
     if (!authHeader || typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
       if (optional) {

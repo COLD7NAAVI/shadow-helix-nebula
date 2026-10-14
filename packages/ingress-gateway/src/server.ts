@@ -23,11 +23,13 @@ import { sendProblemDetails, handleUnhandledError } from './errors/problem-detai
 export interface IngressServerDependencies {
   config?: Partial<GatewayConfig> | undefined;
   router?: Router | undefined;
+  pool?: any | undefined;
 }
 
 export class IngressServer {
   private readonly config: GatewayConfig;
   private readonly router: Router;
+  private readonly pool: any | null = null;
   private server: Server | null = null;
 
   constructor(deps?: IngressServerDependencies) {
@@ -42,6 +44,7 @@ export class IngressServer {
     };
 
     this.router = deps?.router ?? new Router();
+    this.pool = deps?.pool ?? null;
 
     // Attach standard edge middlewares
     this.router.use(createCorrelationMiddleware());
@@ -73,8 +76,18 @@ export class IngressServer {
   }
 
   async stop(): Promise<void> {
+    if (this.pool && typeof this.pool.end === 'function') {
+      try {
+        await this.pool.end();
+      } catch {
+        // Pool end error ignored on shutdown
+      }
+    }
     return new Promise((resolve) => {
       if (this.server) {
+        if (typeof (this.server as any).closeAllConnections === 'function') {
+          (this.server as any).closeAllConnections();
+        }
         this.server.close(() => {
           this.server = null;
           resolve();

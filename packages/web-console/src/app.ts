@@ -37,6 +37,7 @@ export class AppShell {
   private isUserMenuOpen = false;
   private healthInterval: number | null = null;
   private isHealthy = true;
+  private streamUnsubscribe: (() => void) | null = null;
 
   private readonly auditView: AuditView;
   private readonly settingsView: SettingsView;
@@ -67,6 +68,10 @@ export class AppShell {
 
   private handleAuthState(state: AuthState): void {
     if (!state.isAuthenticated) {
+      if (this.streamUnsubscribe) {
+        this.streamUnsubscribe();
+        this.streamUnsubscribe = null;
+      }
       this.renderLoginShell();
     } else {
       if (!this.root.querySelector('.app-shell')) {
@@ -82,6 +87,48 @@ export class AppShell {
       badge.textContent = state.activeWorkspace?.name || 'Select Workspace';
     }
     this.renderWorkspaceMenu();
+    if (state.activeWorkspace?.id) {
+      this.startEventStream(state.activeWorkspace.id);
+    }
+  }
+
+  private startEventStream(workspaceId: string): void {
+    if (this.streamUnsubscribe) {
+      this.streamUnsubscribe();
+      this.streamUnsubscribe = null;
+    }
+
+    const dot = this.root.querySelector<HTMLElement>('#stream-pulse-dot');
+    const text = this.root.querySelector<HTMLElement>('#stream-status-text');
+
+    this.streamUnsubscribe = this.apiClient.subscribeToWorkspaceEvents(
+      workspaceId,
+      (evt) => {
+        if (dot && text) {
+          dot.style.background = '#10b981';
+          dot.style.boxShadow = '0 0 8px #10b981';
+          text.textContent = 'SSE: Live';
+        }
+        if (evt.type === 'execution.dispatched') {
+          this.notificationStore.info(`Execution dispatched: ${(evt.payload as any)?.executionId || 'Active'}`);
+        } else if (evt.type === 'execution.completed') {
+          this.notificationStore.success(`Execution completed: ${(evt.payload as any)?.executionId || 'Finished'}`);
+        } else if (evt.type === 'finding.created') {
+          this.notificationStore.warning(`New finding recorded: ${(evt.payload as any)?.title || 'Vulnerability'}`);
+        } else if (evt.type === 'finding.transitioned') {
+          this.notificationStore.info(`Finding transitioned: ${(evt.payload as any)?.toStatus || 'Updated'}`);
+        } else if (evt.type === 'asset.registered') {
+          this.notificationStore.success(`Asset discovered: ${(evt.payload as any)?.canonicalValue || 'Target'}`);
+        }
+      },
+      () => {
+        if (dot && text) {
+          dot.style.background = '#f59e0b';
+          dot.style.boxShadow = '0 0 8px #f59e0b';
+          text.textContent = 'SSE: Reconnecting...';
+        }
+      }
+    );
   }
 
   private handleRouteChange(match: RouteMatch): void {
@@ -236,6 +283,12 @@ export class AppShell {
               <div class="health-status-badge" id="health-indicator" title="Ingress Gateway Liveness">
                 <div style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></div>
                 <span>Sovereign Ingress: UP</span>
+              </div>
+
+              <!-- Live SSE Telemetry Stream Badge -->
+              <div class="health-status-badge" id="stream-indicator" title="Real-Time Server-Sent Events (SSE) Stream">
+                <div id="stream-pulse-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #06b6d4; box-shadow: 0 0 8px #06b6d4;"></div>
+                <span id="stream-status-text">SSE: Connected</span>
               </div>
 
               <!-- Notifications Menu -->

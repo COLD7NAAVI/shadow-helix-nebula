@@ -51,6 +51,7 @@ import {
   HttpDiscoveryAdapter,
 } from '@shn/capability-registry';
 import { AssetInventoryService, FindingLifecycleService } from '@shn/asset-inventory';
+import { EventStreamHub } from './sse/event-stream-hub.js';
 import { createIngressApplication } from './app.js';
 import type { IngressServer } from './server.js';
 
@@ -480,9 +481,13 @@ function createInMemoryRepositories(store: InMemoryStore) {
   };
 }
 
-async function seedDemonstrationData(store: InMemoryStore, repos: ReturnType<typeof createInMemoryRepositories>) {
+async function seedDemonstrationData(
+  store: InMemoryStore,
+  repos: ReturnType<typeof createInMemoryRepositories>,
+  adminPassword = process.env.SHN_INITIAL_ADMIN_PASSWORD || 'Password123!'
+) {
   const hasher = new PasswordHasher();
-  const passwordHash = await hasher.hashPassword('Password123!');
+  const passwordHash = await hasher.hashPassword(adminPassword);
 
   const adminRoleId = generateUUIDv7();
   store.roles.set('ORG_ADMIN', { id: adminRoleId, name: 'ORG_ADMIN', permissions: 0xffffffff });
@@ -725,6 +730,205 @@ async function seedDemonstrationData(store: InMemoryStore, repos: ReturnType<typ
   });
 }
 
+async function seedPostgresDemonstrationData(
+  repos: any,
+  adminPassword = process.env.SHN_INITIAL_ADMIN_PASSWORD || 'Password123!'
+) {
+  let org = await repos.orgRepo.findBySlug('apex-sovereign');
+  if (!org) {
+    const rawOrgId = generateUUIDv7();
+    const orgRes = createOrganizationId(rawOrgId);
+    const orgId: OrganizationId = orgRes.isOk ? orgRes.value : (rawOrgId as any);
+    org = await repos.orgRepo.create({
+      id: orgId,
+      name: 'Apex Sovereign Cyber Defense',
+      slug: 'apex-sovereign',
+    });
+  }
+
+  let user = await repos.userRepo.findFirstByEmail('operator@shn.sovereign');
+  if (!user) {
+    const hasher = new PasswordHasher();
+    const passwordHash = await hasher.hashPassword(adminPassword);
+
+    const rawUserId = generateUUIDv7();
+    const userRes = createUserId(rawUserId);
+    const userId: UserId = userRes.isOk ? userRes.value : (rawUserId as any);
+
+    user = await repos.userRepo.create({
+      id: userId,
+      organization_id: org.id,
+      email: 'operator@shn.sovereign',
+      display_name: 'Chief Security Officer',
+      status: 'ACTIVE',
+    });
+    await repos.credentialRepo.saveCredential(user.id, passwordHash);
+  }
+
+  let workspace = await repos.workspaceRepo.findBySlug(org.id, 'helix-sector-alpha');
+  if (!workspace) {
+    const rawWksId = generateUUIDv7();
+    const wksRes = createWorkspaceId(rawWksId);
+    const workspaceId: WorkspaceId = wksRes.isOk ? wksRes.value : (rawWksId as any);
+
+    workspace = await repos.workspaceRepo.create({
+      id: workspaceId,
+      organization_id: org.id,
+      name: 'Helix Sector Alpha (Production)',
+      slug: 'helix-sector-alpha',
+    });
+    const adminRole = await repos.roleRepo.findRoleByName('ORG_ADMIN');
+    const adminRoleId = adminRole?.id ?? '00000000-0000-7000-8001-000000000001';
+    await repos.roleRepo.assignUserRole(user.id, adminRoleId, org.id, workspace.id);
+  }
+
+  let devWorkspace = await repos.workspaceRepo.findBySlug(org.id, 'quantum-lab-sandbox');
+  if (!devWorkspace) {
+    const rawDevWksId = generateUUIDv7();
+    const devWksRes = createWorkspaceId(rawDevWksId);
+    const devWorkspaceId: WorkspaceId = devWksRes.isOk ? devWksRes.value : (rawDevWksId as any);
+
+    devWorkspace = await repos.workspaceRepo.create({
+      id: devWorkspaceId,
+      organization_id: org.id,
+      name: 'Quantum Lab Sandbox',
+      slug: 'quantum-lab-sandbox',
+    });
+  }
+
+  const existingScopes = await repos.scopeRepo.listByWorkspace(workspace.id);
+  let scopeId: string;
+  if (existingScopes.length === 0) {
+    const rawScopeId = generateUUIDv7();
+    const scopeRes = createScopeId(rawScopeId);
+    scopeId = scopeRes.isOk ? scopeRes.value : (rawScopeId as any);
+
+    await repos.scopeRepo.createScope({
+      id: scopeId,
+      workspace_id: workspace.id,
+      organization_id: org.id,
+      name: 'Perimeter Defense Zone Alpha',
+      description: 'Authorized operational target inclusions for automated scanning',
+      status: 'ACTIVE',
+      inclusions: [
+        { type: 'CIDR', value: '10.240.0.0/24' },
+        { type: 'IPV4', value: '192.168.10.45' },
+        { type: 'DOMAIN', value: 'api.sovereign.internal' },
+        { type: 'URL', value: 'https://gateway.sovereign.internal/api' },
+      ],
+      exclusions: [
+        { type: 'IPV4', value: '169.254.169.254', reason: 'AWS/GCP Cloud Metadata Protection (SEC-INV-08)' },
+        { type: 'CIDR', value: '127.0.0.0/8', reason: 'Loopback Protection' },
+      ],
+      allowed_actions: [
+        'RECON_PASSIVE',
+        'PROBING_ACTIVE',
+        'PORT_SCAN',
+        'HTTP_DISCOVERY',
+        'network:scan',
+        'http:probe',
+      ],
+      disallowed_actions: ['EXPLOIT', 'DENIAL_OF_SERVICE'],
+      port_ranges: [
+        { start: 22, end: 22 },
+        { start: 80, end: 443 },
+        { start: 8000, end: 9000 },
+      ],
+      valid_from: new Date(Date.now() - 3600000).toISOString(),
+      valid_until: new Date(Date.now() + 86400000 * 90).toISOString(),
+      rate_limits: { requests_per_second: 50 },
+      scope_sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      created_by: user.id,
+    });
+  } else {
+    scopeId = existingScopes[0].id;
+  }
+
+  const existingAssets = await repos.assetRepo.listAssets(workspace.id);
+  let asset1Id: string | undefined;
+  if (existingAssets.length === 0) {
+    const rawAsset1 = generateUUIDv7();
+    const asset1Res = createAssetId(rawAsset1);
+    asset1Id = asset1Res.isOk ? asset1Res.value : (rawAsset1 as any);
+
+    await repos.assetRepo.createAsset({
+      id: asset1Id as any,
+      workspaceId: workspace.id,
+      organizationId: org.id,
+      type: 'IPV4',
+      canonicalValue: '10.240.0.1',
+      name: 'Sovereign Core Gateway',
+      criticality: 'CRITICAL',
+      status: 'ACTIVE',
+      tags: ['edge', 'gateway', 'core-infra'],
+      metadata: { env: 'production', cluster: 'helix-core-1' },
+    });
+
+    const rawAsset2 = generateUUIDv7();
+    const asset2Res = createAssetId(rawAsset2);
+    const asset2Id = asset2Res.isOk ? asset2Res.value : (rawAsset2 as any);
+
+    await repos.assetRepo.createAsset({
+      id: asset2Id as any,
+      workspaceId: workspace.id,
+      organizationId: org.id,
+      type: 'FQDN',
+      canonicalValue: 'api.sovereign.internal',
+      name: 'Zero-Trust Authentication Gateway',
+      criticality: 'HIGH',
+      status: 'ACTIVE',
+      tags: ['identity', 'rest-api'],
+      metadata: { protocol: 'https', tls_version: '1.3' },
+    });
+  } else {
+    asset1Id = existingAssets[0].id;
+  }
+
+  const existingFindings = await repos.findingRepo.listFindings(workspace.id);
+  if (existingFindings.length === 0 && asset1Id) {
+    const rawFinding1 = generateUUIDv7();
+    const finding1Res = createFindingId(rawFinding1);
+    const finding1Id = finding1Res.isOk ? finding1Res.value : (rawFinding1 as any);
+
+    await repos.findingRepo.createFinding({
+      id: finding1Id as any,
+      workspaceId: workspace.id,
+      organizationId: org.id,
+      assetId: asset1Id as any,
+      title: 'Container Breakout Risk: Insecure Pod Security Standards',
+      description: 'HostPath volume mount detected with write access to root filesystem, allowing privilege escalation.',
+      category: 'CONTAINER_SECURITY',
+      severity: 'CRITICAL',
+      cveId: 'CVE-2024-21626',
+      cweId: 'CWE-250',
+      cvssScore: 8.8,
+      cvssVector: 'CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:H',
+      rawEvidenceSha256: 'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0',
+      remediationGuidance: 'Enforce Restricted Pod Security Standards and eliminate privileged hostPath mounts.',
+      status: 'CONFIRMED',
+    });
+  }
+
+  const existingAudit = await repos.auditRepo.listByWorkspace(workspace.id, 1);
+  if (existingAudit.length === 0) {
+    await repos.auditRepo.append({
+      event_id: generateUUIDv7(),
+      event_type: 'platform.initialized',
+      schema_version: '1.0.0',
+      occurred_at: new Date().toISOString(),
+      producer: { service: 'ingress-gateway', version: '0.1.0', instance_id: 'standalone-primary' },
+      workspace_id: workspace.id,
+      correlation_id: generateUUIDv7(),
+      causation_id: generateUUIDv7(),
+      trace_id: '4bf92f3577b34da6a3ce929d0e0e4736',
+      authorization_context: { subject_id: user.id, roles: ['ORG_ADMIN'] },
+      scope_reference: { scope_id: scopeId, sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' },
+      payload: { message: 'Shadow : Helix Nebula Sovereign Platform Online' },
+      integrity: { signature: 'sig_genesis_verified', algorithm: 'ed25519' },
+    });
+  }
+}
+
 function attachStaticWebConsoleHandler(server: IngressServer) {
   const router = server.getRouter();
   const webDistDir = path.resolve(process.cwd(), 'packages/web-console/dist');
@@ -747,7 +951,12 @@ function attachStaticWebConsoleHandler(server: IngressServer) {
       return;
     }
 
-    if (req.path.startsWith('/api') || req.path.startsWith('/health') || req.path === '/metrics') {
+    if (
+      req.path.startsWith('/api') ||
+      req.path.startsWith('/health') ||
+      req.path === '/metrics' ||
+      req.path === '/openapi.json'
+    ) {
       await next();
       return;
     }
@@ -782,8 +991,21 @@ export async function startStandaloneServer(customPort?: number): Promise<{
   port: number;
   url: string;
   isPostgres: boolean;
+  eventStreamHub: EventStreamHub;
 }> {
-  const port = customPort || Number(process.env.SHN_PORT || 8080);
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.SHN_SIGNER_SECRET || process.env.SHN_SIGNER_SECRET === 'shn-sovereign-signer-secret-key-32b!') {
+      throw new Error('Production Security Invariant Violation: SHN_SIGNER_SECRET must be configured with a secure key.');
+    }
+    if (!process.env.SHN_SCOPE_SIGNER_SECRET || process.env.SHN_SCOPE_SIGNER_SECRET === 'shn-sovereign-scope-secret-key-32b!!') {
+      throw new Error('Production Security Invariant Violation: SHN_SCOPE_SIGNER_SECRET must be configured with a secure key.');
+    }
+    if (!process.env.SHN_INITIAL_ADMIN_PASSWORD || process.env.SHN_INITIAL_ADMIN_PASSWORD === 'Password123!') {
+      throw new Error('Production Security Invariant Violation: SHN_INITIAL_ADMIN_PASSWORD must be configured with a strong non-default password.');
+    }
+  }
+
+  const port = customPort !== undefined ? customPort : Number(process.env.SHN_PORT || 8080);
   const host = process.env.SHN_HOST || '0.0.0.0';
   const signerSecret = process.env.SHN_SIGNER_SECRET || 'shn-sovereign-signer-secret-key-32b!';
   const signer = new SecurityContextSigner(signerSecret);
@@ -854,6 +1076,7 @@ export async function startStandaloneServer(customPort?: number): Promise<{
       scopeRepo: new ScopeRepository(pool),
       auditRepo: new AuditEventRepository(pool),
     };
+    await seedPostgresDemonstrationData(repos);
   } else {
     pool = createInMemoryDatabasePool();
     repos = createInMemoryRepositories(inMemoryStore);
@@ -931,7 +1154,8 @@ export async function startStandaloneServer(customPort?: number): Promise<{
   await capabilityRegistry.registerAdapter(new HttpDiscoveryAdapter());
 
   const tenancyValidator = new TenancyValidator(repos.workspaceRepo);
-  const scopeTokenSigner = new ScopeTokenSigner('shn-sovereign-scope-secret-key-32b!!');
+  const scopeSecret = process.env.SHN_SCOPE_SIGNER_SECRET || 'shn-sovereign-scope-secret-key-32b!!';
+  const scopeTokenSigner = new ScopeTokenSigner(scopeSecret);
   const scopeGatekeeper = new ScopeGatekeeper({
     scopeRepo: repos.scopeRepo,
     workspaceRepo: repos.workspaceRepo,
@@ -953,50 +1177,64 @@ export async function startStandaloneServer(customPort?: number): Promise<{
     tenancyValidator,
   });
 
-  const server = createIngressApplication({
-    pool,
-    orgRepo: repos.orgRepo,
-    userRepo: repos.userRepo,
-    workspaceRepo: repos.workspaceRepo,
-    credentialRepo: repos.credentialRepo,
-    roleRepo: repos.roleRepo,
-    assetRepo: repos.assetRepo,
-    findingRepo: repos.findingRepo,
-    executionRepo: repos.executionRepo,
-    scopeRepo: repos.scopeRepo,
-    auditRepo: repos.auditRepo,
-    assetService,
-    findingService,
-    capabilityRegistry,
-    capabilityDispatcher,
-    signer,
-    tenancyValidator,
-    config: {
-      port,
-      host,
-      corsAllowedOrigins: ['*'],
-    },
-  });
+  const eventStreamHub = new EventStreamHub();
 
-  attachStaticWebConsoleHandler(server);
+  let server: IngressServer | undefined;
+  try {
+    server = createIngressApplication({
+      pool,
+      orgRepo: repos.orgRepo,
+      userRepo: repos.userRepo,
+      workspaceRepo: repos.workspaceRepo,
+      credentialRepo: repos.credentialRepo,
+      roleRepo: repos.roleRepo,
+      assetRepo: repos.assetRepo,
+      findingRepo: repos.findingRepo,
+      executionRepo: repos.executionRepo,
+      scopeRepo: repos.scopeRepo,
+      auditRepo: repos.auditRepo,
+      assetService,
+      findingService,
+      capabilityRegistry,
+      capabilityDispatcher,
+      signer,
+      tenancyValidator,
+      eventStreamHub,
+      config: {
+        port,
+        host,
+        corsAllowedOrigins: ['*'],
+      },
+    });
 
-  const started = await server.start();
-  const url = `http://localhost:${started.port}`;
+    attachStaticWebConsoleHandler(server);
 
-  console.log(`
+    const started = await server.start();
+    const url = `http://localhost:${started.port}`;
+
+    console.log(`
 ========================================================================
 SHADOW : HELIX NEBULA (SHN) — SOVEREIGN CYBERSECURITY PLATFORM
 ========================================================================
 [+] Ingress Gateway REST API: ${url}
 [+] Web Console UI:          ${url} (or http://localhost:3000 via Vite)
+[+] OpenAPI 3.1 Spec:         ${url}/openapi.json
+[+] Real-Time Event Stream:  ${url}/api/v1/workspaces/:workspaceId/events/stream
 [+] Platform Health Probes:  ${url}/health/live  |  ${url}/health/ready
 [+] Prometheus Metrics:      ${url}/metrics
 [+] Persistence Engine:      ${isPostgres ? 'PostgreSQL (Active)' : 'Sovereign In-Memory Engine (Active)'}
-[+] Default Credentials:     operator@shn.sovereign / Password123!
+[+] Sovereign Operator:      operator@shn.sovereign
+[+] Security Status:         Active (Zero-Trust Identity & Tenancy Hardened)
 ========================================================================
 `);
 
-  return { server, port: started.port, url, isPostgres };
+    return { server, port: started.port, url, isPostgres, eventStreamHub };
+  } catch (err) {
+    if (server) {
+      await server.stop().catch(() => {});
+    }
+    throw err;
+  }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename)) {

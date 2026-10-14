@@ -340,20 +340,35 @@ export class CapabilityRegistry implements ICapabilityRegistry {
     }
 
     if (this.repository) {
-      await this.repository.registerAdapter({
-        id: adapterIdStr,
-        workspaceId: workspaceId ?? null,
-        name: adapter.name,
-        version: adapter.version,
-        lifecycleState: adapter.getLifecycleState(),
-        supportedCapabilities: adapter.supportedCapabilities.map(b => ({
-          capabilityId: String(b.capabilityId),
-          versionConstraint: b.versionConstraint,
-        })),
-        platformCompatibility: adapter.platformSupport,
-        binaryPath: (adapter as any).executablePath ?? adapter.name,
-        manifestDigest: '0'.repeat(64),
-      });
+      try {
+        await this.repository.registerAdapter({
+          id: adapterIdStr,
+          workspaceId: workspaceId ?? null,
+          name: adapter.name,
+          version: adapter.version,
+          lifecycleState: adapter.getLifecycleState(),
+          supportedCapabilities: adapter.supportedCapabilities.map(b => ({
+            capabilityId: String(b.capabilityId),
+            versionConstraint: b.versionConstraint,
+          })),
+          platformCompatibility: adapter.platformSupport,
+          binaryPath: (adapter as any).executablePath ?? adapter.name,
+          manifestDigest: '0'.repeat(64),
+        });
+      } catch (e: any) {
+        // Rollback memory if DB fails
+        if (workspaceId) {
+          this.workspaceAdapters.get(workspaceId)?.delete(adapterIdStr);
+        } else {
+          this.systemAdapters.delete(adapterIdStr);
+        }
+        return err(
+          makeCapabilityProblem(
+            e.message?.startsWith('Conflict') ? ErrorCode.CAP_ALREADY_EXISTS : ErrorCode.INTERNAL_FAULT,
+            `Failed to persist adapter: ${e.message}`
+          )
+        );
+      }
     }
 
     return ok(undefined);

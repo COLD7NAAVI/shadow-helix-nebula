@@ -318,4 +318,70 @@ export class ApiClient {
       `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/audit?limit=${encodeURIComponent(limit)}`
     );
   }
+
+  // OpenAPI Specification
+  async getOpenApiSpec(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/openapi.json');
+  }
+
+  // Real-Time SSE Telemetry & Domain Event Stream
+  subscribeToWorkspaceEvents(
+    workspaceId: string,
+    onEvent: (evt: { type: string; payload: any; timestamp: string }) => void,
+    onError?: (err: unknown) => void
+  ): () => void {
+    if (typeof EventSource === 'undefined') {
+      return () => {};
+    }
+
+    const token = this.getToken();
+    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+    const streamUrl = `${this.baseUrl}/api/v1/workspaces/${encodeURIComponent(workspaceId)}/events/stream${tokenQuery}`;
+
+    const es = new EventSource(streamUrl);
+
+    es.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        onEvent(parsed);
+      } catch {
+        // Raw comment
+      }
+    };
+
+    const eventTypes = [
+      'connected',
+      'execution.dispatched',
+      'execution.completed',
+      'execution.failed',
+      'finding.created',
+      'finding.transitioned',
+      'asset.registered',
+      'scope.created',
+      'audit.recorded',
+    ];
+
+    for (const evtType of eventTypes) {
+      es.addEventListener(evtType, (event: any) => {
+        try {
+          const parsed = JSON.parse(event.data);
+          onEvent({
+            type: evtType,
+            payload: parsed.payload ?? parsed,
+            timestamp: parsed.timestamp ?? new Date().toISOString(),
+          });
+        } catch {
+          // Ignored
+        }
+      });
+    }
+
+    es.onerror = (err) => {
+      if (onError) onError(err);
+    };
+
+    return () => {
+      es.close();
+    };
+  }
 }

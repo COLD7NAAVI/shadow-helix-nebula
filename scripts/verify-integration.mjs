@@ -181,7 +181,7 @@ async function run() {
     console.log(`       ✓ Audit Ledger OK (${auditEvents.length} events logged)`);
 
     // 14. Static Asset Delivery (CSS and JS chunks)
-    console.log('[14/14] Testing Web Console static asset serving ...');
+    console.log('[14/16] Testing Web Console static asset serving ...');
     const scriptMatch = htmlText.match(/src="([^"]+\.js)"/);
     if (scriptMatch) {
       const scriptUrl = `${url}${scriptMatch[1].startsWith('/') ? '' : '/'}${scriptMatch[1]}`;
@@ -199,8 +199,49 @@ async function run() {
       console.log('       ✓ CSS Bundle verified:', styleMatch[1]);
     }
 
+    // 15. OpenAPI 3.1 Specification Delivery
+    console.log('[15/16] Testing GET /openapi.json (OpenAPI 3.1 Spec) ...');
+    const specRes = await fetch(`${url}/openapi.json`);
+    assert.equal(specRes.status, 200, 'OpenAPI spec must return 200');
+    assert.ok(specRes.headers.get('content-type')?.includes('application/json'), 'Content-Type must be application/json');
+    const openApiDoc = await specRes.json();
+    assert.equal(openApiDoc.openapi, '3.1.0', 'Specification version must be 3.1.0');
+    assert.ok(openApiDoc.paths['/api/v1/workspaces/{workspaceId}/events/stream'], 'Spec must document SSE stream');
+    console.log(`       ✓ OpenAPI 3.1 Specification verified (${Object.keys(openApiDoc.paths).length} operations documented)`);
+
+    // 16. Real-Time Telemetry & Event Stream (SSE)
+    console.log('[16/16] Testing GET /api/v1/workspaces/:workspaceId/events/stream (SSE) ...');
+    const sseUrl = `${url}/api/v1/workspaces/${workspaceId}/events/stream?token=${encodeURIComponent(authData.token)}`;
+    const sseReceived = await new Promise((resolve, reject) => {
+      const chunks = [];
+      const timer = setTimeout(() => {
+        reject(new Error('Timeout awaiting SSE stream handshake'));
+      }, 5000);
+
+      import('node:http').then(({ default: http }) => {
+        const req = http.get(sseUrl, (res) => {
+          assert.equal(res.statusCode, 200, 'SSE stream must return HTTP 200');
+          assert.ok(res.headers['content-type']?.includes('text/event-stream'), 'Content-Type must be text/event-stream');
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => {
+            chunks.push(chunk);
+            if (chunk.includes('event: connected')) {
+              clearTimeout(timer);
+              req.destroy();
+              resolve(chunks.join(''));
+            }
+          });
+        });
+        req.on('error', (err) => {
+          if (err.code !== 'ECONNRESET') reject(err);
+        });
+      });
+    });
+    assert.ok(sseReceived.includes('"status":"CONNECTED"'), 'Handshake must confirm connected status');
+    console.log('       ✓ Server-Sent Events stream connected and received handshake');
+
     console.log('\n========================================================================');
-    console.log('[SUCCESS] ALL 14 INTEGRATION CHECKS PASSED FLAWLESSLY!');
+    console.log('[SUCCESS] ALL 16 INTEGRATION CHECKS PASSED FLAWLESSLY!');
     console.log('========================================================================\n');
   } finally {
     console.log('[*] Tearing down server instance...');

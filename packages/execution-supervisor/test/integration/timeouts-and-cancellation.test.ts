@@ -88,8 +88,11 @@ describe('Timeouts, Cancellation & Escalation (Integration)', () => {
 
     const executePromise = env.supervisor.execute(req);
 
-    // Wait for spawn
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Wait for spawn and active worker registration
+    for (let i = 0; i < 50; i++) {
+      if ((env.supervisor as any).activeExecutions?.has(customExecId)) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
 
     // Cancel execution
     const cancelRes = await env.supervisor.cancelExecution({

@@ -126,6 +126,23 @@ export class CapabilityRepository {
     client?: DatabaseClient
   ): Promise<CapabilityRecord> {
     const executor = this.getExecutor(client);
+    const targetWorkspaceId = input.workspaceId ?? null;
+
+    const existing = await this.findCapabilityExact(input.id, targetWorkspaceId, client);
+    if (existing) {
+      if (existing.name !== input.name) {
+        throw new Error(
+          `Conflict: Capability '${input.id}' already exists with name '${existing.name}', cannot register with name '${input.name}'`
+        );
+      }
+      if (existing.version !== input.version) {
+        throw new Error(
+          `Conflict: Capability '${input.id}' already exists with version '${existing.version}', cannot register with version '${input.version}'`
+        );
+      }
+      return existing;
+    }
+
     const sql = `
       INSERT INTO capabilities.capabilities (
         id, workspace_id, name, version, display_name, description,
@@ -144,7 +161,7 @@ export class CapabilityRepository {
     `;
     const params = [
       input.id,
-      input.workspaceId ?? null,
+      targetWorkspaceId,
       input.name,
       input.version,
       input.displayName,
@@ -164,8 +181,23 @@ export class CapabilityRepository {
       JSON.stringify(input.metadata ?? {}),
     ];
 
-    const result = await executor.query(sql, params);
-    return this.mapCapabilityRow(result.rows[0]);
+    try {
+      const result = await executor.query(sql, params);
+      return this.mapCapabilityRow(result.rows[0]);
+    } catch (err: any) {
+      if (err.code === '23505') {
+        const recheck = await this.findCapabilityExact(input.id, targetWorkspaceId, client);
+        if (recheck) {
+          if (recheck.name !== input.name || recheck.version !== input.version) {
+            throw new Error(
+              `Conflict: Capability '${input.id}' already exists with conflicting definition`
+            );
+          }
+          return recheck;
+        }
+      }
+      throw err;
+    }
   }
 
   async findCapabilityById(
@@ -278,6 +310,23 @@ export class CapabilityRepository {
     client?: DatabaseClient
   ): Promise<AdapterRecord> {
     const executor = this.getExecutor(client);
+    const targetWorkspaceId = input.workspaceId ?? null;
+
+    const existing = await this.findAdapterExact(input.id, targetWorkspaceId, client);
+    if (existing) {
+      if (existing.name !== input.name) {
+        throw new Error(
+          `Conflict: Adapter '${input.id}' already exists with name '${existing.name}', cannot register with name '${input.name}'`
+        );
+      }
+      if (existing.version !== input.version) {
+        throw new Error(
+          `Conflict: Adapter '${input.id}' already exists with version '${existing.version}', cannot register with version '${input.version}'`
+        );
+      }
+      return existing;
+    }
+
     const sql = `
       INSERT INTO capabilities.adapters (
         id, workspace_id, name, version, lifecycle_state,
@@ -292,7 +341,7 @@ export class CapabilityRepository {
     `;
     const params = [
       input.id,
-      input.workspaceId ?? null,
+      targetWorkspaceId,
       input.name,
       input.version,
       input.lifecycleState ?? 'REGISTERED',
@@ -303,8 +352,23 @@ export class CapabilityRepository {
       JSON.stringify(input.metadata ?? {}),
     ];
 
-    const result = await executor.query(sql, params);
-    return this.mapAdapterRow(result.rows[0]);
+    try {
+      const result = await executor.query(sql, params);
+      return this.mapAdapterRow(result.rows[0]);
+    } catch (err: any) {
+      if (err.code === '23505') {
+        const recheck = await this.findAdapterExact(input.id, targetWorkspaceId, client);
+        if (recheck) {
+          if (recheck.name !== input.name || recheck.version !== input.version) {
+            throw new Error(
+              `Conflict: Adapter '${input.id}' already exists with conflicting definition`
+            );
+          }
+          return recheck;
+        }
+      }
+      throw err;
+    }
   }
 
   async findAdapterById(
@@ -510,5 +574,35 @@ export class CapabilityRepository {
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
     };
+  }
+
+  private async findAdapterExact(
+    id: string,
+    workspaceId: WorkspaceId | null,
+    client?: DatabaseClient
+  ): Promise<AdapterRecord | null> {
+    const executor = this.getExecutor(client);
+    const sql = workspaceId
+      ? `SELECT * FROM capabilities.adapters WHERE id = $1 AND workspace_id = $2 LIMIT 1;`
+      : `SELECT * FROM capabilities.adapters WHERE id = $1 AND workspace_id IS NULL LIMIT 1;`;
+    const params = workspaceId ? [id, workspaceId] : [id];
+    const result = await executor.query(sql, params);
+    if (result.rows.length === 0 || !result.rows[0]) return null;
+    return this.mapAdapterRow(result.rows[0]);
+  }
+
+  private async findCapabilityExact(
+    id: string,
+    workspaceId: WorkspaceId | null,
+    client?: DatabaseClient
+  ): Promise<CapabilityRecord | null> {
+    const executor = this.getExecutor(client);
+    const sql = workspaceId
+      ? `SELECT * FROM capabilities.capabilities WHERE id = $1 AND workspace_id = $2 LIMIT 1;`
+      : `SELECT * FROM capabilities.capabilities WHERE id = $1 AND workspace_id IS NULL LIMIT 1;`;
+    const params = workspaceId ? [id, workspaceId] : [id];
+    const result = await executor.query(sql, params);
+    if (result.rows.length === 0 || !result.rows[0]) return null;
+    return this.mapCapabilityRow(result.rows[0]);
   }
 }

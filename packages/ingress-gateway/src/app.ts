@@ -38,6 +38,9 @@ import { CapabilityController } from './controllers/capability.controller.js';
 import { ExecutionController } from './controllers/execution.controller.js';
 import { ScopeController } from './controllers/scope.controller.js';
 import { AuditController } from './controllers/audit.controller.js';
+import { OpenApiController } from './controllers/openapi.controller.js';
+import { EventStreamController } from './controllers/event-stream.controller.js';
+import { EventStreamHub } from './sse/event-stream-hub.js';
 
 export interface AppDependencies {
   pool?: DatabasePool | undefined;
@@ -58,6 +61,7 @@ export interface AppDependencies {
   signer: SecurityContextSigner;
   tenancyValidator?: TenancyValidator | undefined;
   authService?: AuthorizationService | undefined;
+  eventStreamHub?: EventStreamHub | undefined;
   config?: Partial<GatewayConfig> | undefined;
 }
 
@@ -75,11 +79,14 @@ export function createIngressApplication(deps: AppDependencies): IngressServer {
     tenancyValidator: deps.tenancyValidator,
   });
 
-  // 1. Health & Telemetry
+  // 1. Health & Telemetry & OpenAPI Specification
   const healthCtrl = new HealthController({ pool: deps.pool });
+  const openApiCtrl = new OpenApiController();
   router.get('/health/live', (req, res) => healthCtrl.getLiveness(req, res));
   router.get('/health/ready', (req, res) => healthCtrl.getReadiness(req, res));
   router.get('/metrics', (req, res) => healthCtrl.getMetrics(req, res));
+  router.get('/openapi.json', (req, res) => openApiCtrl.getSpec(req, res));
+  router.get('/api/v1/openapi.json', (req, res) => openApiCtrl.getSpec(req, res));
 
   // 2. Auth & Identity
   if (deps.orgRepo && deps.userRepo && deps.workspaceRepo) {
@@ -160,8 +167,16 @@ export function createIngressApplication(deps: AppDependencies): IngressServer {
     router.get('/api/v1/workspaces/:workspaceId/audit/:eventId', authMiddleware, tenancyMiddleware, (req, res) => auditCtrl.get(req, res));
   }
 
+  // 10. Real-Time Telemetry & Domain Event Stream (SSE)
+  const eventStreamHub = deps.eventStreamHub ?? new EventStreamHub();
+  const eventStreamCtrl = new EventStreamController({ hub: eventStreamHub });
+  router.get('/api/v1/workspaces/:workspaceId/events/stream', authMiddleware, tenancyMiddleware, (req, res) =>
+    eventStreamCtrl.streamEvents(req, res)
+  );
+
   return new IngressServer({
     config: deps.config,
     router,
+    pool: deps.pool,
   });
 }

@@ -23,4 +23,8 @@ export * from './controllers/capability.controller.js';
 export * from './controllers/execution.controller.js';
 export * from './controllers/scope.controller.js';
 export * from './controllers/audit.controller.js';
+export * from './controllers/openapi.controller.js';
+export * from './controllers/event-stream.controller.js';
+export * from './openapi/openapi-spec.js';
+export * from './sse/event-stream-hub.js';
 export * from './cli/cli-runner.js';
