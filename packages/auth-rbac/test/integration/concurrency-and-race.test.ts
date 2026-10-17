@@ -15,13 +15,15 @@ import {
 } from './auth-test-helper.ts';
 import type { DatabasePool } from '@shn/data-access';
 
+const DB_NAME = 'shn_test_auth_concurrency';
+
 describe('Concurrency, Race Condition & Lockout Atomicity (Integration)', () => {
   let pool: DatabasePool;
   let services: TestServices;
 
   before(async () => {
-    pool = createAuthTestPool();
-    await setupAuthTestDatabase(pool);
+    pool = createAuthTestPool(DB_NAME);
+    await setupAuthTestDatabase(pool, DB_NAME);
     services = createTestServices(pool);
   });
 

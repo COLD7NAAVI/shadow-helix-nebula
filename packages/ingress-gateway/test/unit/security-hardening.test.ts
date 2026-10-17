@@ -166,7 +166,7 @@ describe('Security Hardening & Safe Provisioning (Unit Tests)', () => {
 
   describe('IngressServer Security Headers & CORS Preflight', () => {
     it('handles CORS OPTIONS preflight request with HTTP 204 No Content', async () => {
-      const server = new IngressServer();
+      const server = new IngressServer({ config: { port: 0 } });
       const started = await server.start();
 
       try {
@@ -189,7 +189,7 @@ describe('Security Hardening & Safe Provisioning (Unit Tests)', () => {
     });
 
     it('injects mandatory security headers: CSP, nosniff, DENY, and Referrer-Policy', async () => {
-      const server = new IngressServer();
+      const server = new IngressServer({ config: { port: 0 } });
       server.getRouter().get('/test-headers', (_req, res) => {
         res.status(200).json({ ok: true });
       });

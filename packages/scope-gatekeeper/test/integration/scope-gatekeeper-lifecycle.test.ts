@@ -15,6 +15,7 @@ import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { ErrorCode } from '@shn/error-catalog';
+import { PermissionBit } from '@shn/auth-rbac';
 import {
   createScopeTestPool,
   setupScopeTestDatabase,
@@ -26,12 +27,14 @@ import {
   type ScopeTestServices,
 } from './scope-test-helper.ts';
 
+const DB_NAME = 'shn_test_scope_lifecycle';
+
 describe('Scope Gatekeeper Lifecycle (Database Integration Tests)', () => {
-  const pool = createScopeTestPool();
+  const pool = createScopeTestPool(DB_NAME);
   let services: ScopeTestServices;
 
   before(async () => {
-    await setupScopeTestDatabase(pool);
+    await setupScopeTestDatabase(pool, DB_NAME);
     services = createScopeTestServices(pool);
   });
 
@@ -296,4 +299,124 @@ describe('Scope Gatekeeper Lifecycle (Database Integration Tests)', () => {
       assert.strictEqual(denyVerdict.value.errorCode, ErrorCode.SCOPE_VIOLATION_OUT_OF_BOUNDS);
     });
   });
+
+  describe('HTTP Discovery & Capability Action Mapping Regression Tests', () => {
+    it('should authorize http:probe on targets within scope when PROBING_ACTIVE is in allowed_actions', async () => {
+      const { orgId, workspaceId } = await createTestOrgAndWorkspace(services);
+      const context = createTestSecurityContext(services, workspaceId);
+
+      const scope = await createPersistedScope(services, workspaceId, orgId, {
+        inclusions: ['*.sslip.io', 'https://16-16-143-137.sslip.io'],
+        allowed_actions: ['RECON_PASSIVE', 'PROBING_ACTIVE', 'PORT_SCAN'],
+        port_ranges: [{ start: 80, end: 443 }, { start: 3000, end: 3000 }],
+      });
+
+      const verdict = await services.gatekeeper.evaluateTarget({
+        context,
+        target: 'https://16-16-143-137.sslip.io',
+        action: 'http:probe',
+        port: 443,
+        scopeId: scope.id,
+      });
+
+      assert.strictEqual(verdict.isOk, true);
+      assert.strictEqual(verdict.value.allowed, true);
+      assert.match(verdict.value.reason, /explicitly authorized/i);
+    });
+
+    it('should reject http:probe when action is not in scope allowedActions', async () => {
+      const { orgId, workspaceId } = await createTestOrgAndWorkspace(services);
+      const context = createTestSecurityContext(services, workspaceId);
+
+      const scope = await createPersistedScope(services, workspaceId, orgId, {
+        inclusions: ['*.sslip.io'],
+        allowed_actions: ['PORT_SCAN'],
+      });
+
+      const verdict = await services.gatekeeper.evaluateTarget({
+        context,
+        target: 'https://16-16-143-137.sslip.io',
+        action: 'http:probe',
+        scopeId: scope.id,
+      });
+
+      assert.strictEqual(verdict.isOk, true);
+      assert.strictEqual(verdict.value.allowed, false);
+      assert.strictEqual(verdict.value.errorCode, ErrorCode.SCOPE_ACTION_DISALLOWED);
+      assert.match(verdict.value.reason, /not in scope allowedActions/i);
+    });
+
+    it('should reject http:probe when action is explicitly in scope disallowedActions', async () => {
+      const { orgId, workspaceId } = await createTestOrgAndWorkspace(services);
+      const context = createTestSecurityContext(services, workspaceId);
+
+      const scope = await createPersistedScope(services, workspaceId, orgId, {
+        inclusions: ['*.sslip.io'],
+        allowed_actions: ['PROBING_ACTIVE', 'PORT_SCAN'],
+        disallowed_actions: ['PROBING_ACTIVE'],
+      });
+
+      const verdict = await services.gatekeeper.evaluateTarget({
+        context,
+        target: 'https://16-16-143-137.sslip.io',
+        action: 'http:probe',
+        scopeId: scope.id,
+      });
+
+      assert.strictEqual(verdict.isOk, true);
+      assert.strictEqual(verdict.value.allowed, false);
+      assert.strictEqual(verdict.value.errorCode, ErrorCode.SCOPE_ACTION_DISALLOWED);
+      assert.match(verdict.value.reason, /disallowedActions/i);
+    });
+
+    it('should reject out-of-scope targets even with authorized action', async () => {
+      const { orgId, workspaceId } = await createTestOrgAndWorkspace(services);
+      const context = createTestSecurityContext(services, workspaceId);
+
+      const scope = await createPersistedScope(services, workspaceId, orgId, {
+        inclusions: ['*.sslip.io'],
+        allowed_actions: ['RECON_PASSIVE', 'PROBING_ACTIVE', 'PORT_SCAN'],
+      });
+
+      const verdict = await services.gatekeeper.evaluateTarget({
+        context,
+        target: 'https://unauthorized-victim.com',
+        action: 'http:probe',
+        scopeId: scope.id,
+      });
+
+      assert.strictEqual(verdict.isOk, true);
+      assert.strictEqual(verdict.value.allowed, false);
+      assert.strictEqual(verdict.value.errorCode, ErrorCode.SCOPE_VIOLATION_OUT_OF_BOUNDS);
+    });
+
+    it('should reject http:probe when actor lacks PermissionBit.PROBING_ACTIVE', async () => {
+      const { orgId, workspaceId } = await createTestOrgAndWorkspace(services);
+      // Create context with only SCOPE_READ permission, omitting PROBING_ACTIVE
+      const context = createTestSecurityContext(
+        services,
+        workspaceId,
+        undefined,
+        PermissionBit.SCOPE_READ
+      );
+
+      const scope = await createPersistedScope(services, workspaceId, orgId, {
+        inclusions: ['*.sslip.io'],
+        allowed_actions: ['PROBING_ACTIVE'],
+      });
+
+      const verdict = await services.gatekeeper.evaluateTarget({
+        context,
+        target: 'https://16-16-143-137.sslip.io',
+        action: 'http:probe',
+        scopeId: scope.id,
+      });
+
+      assert.strictEqual(verdict.isOk, true);
+      assert.strictEqual(verdict.value.allowed, false);
+      assert.strictEqual(verdict.value.errorCode, ErrorCode.AUTH_FORBIDDEN);
+      assert.match(verdict.value.reason, /lacks required permission bit/i);
+    });
+  });
 });
+

@@ -39,7 +39,7 @@ import {
 export const TEST_MASTER_KEY = Buffer.alloc(32, 0x5a); // 32-byte deterministic master key
 export const TEST_SIGNING_KEY = 'shn-test-context-token-signing-key-32b!';
 
-export function getAuthTestDatabaseConfig(dbName = 'shn_test'): DatabaseConfig {
+export function getAuthTestDatabaseConfig(dbName = 'shn_test_auth_rbac'): DatabaseConfig {
   return {
     host: process.env.SHN_TEST_DB_HOST || '127.0.0.1',
     port: parseInt(process.env.SHN_TEST_DB_PORT || '54329', 10),
@@ -69,17 +69,21 @@ export async function ensureDatabase(dbName: string): Promise<void> {
   }
 }
 
-export function createAuthTestPool(dbName = 'shn_test'): DatabasePool {
+export function createAuthTestPool(dbName = 'shn_test_auth_rbac'): DatabasePool {
   return createDatabasePool(getAuthTestDatabaseConfig(dbName));
 }
 
-export async function setupAuthTestDatabase(pool: DatabasePool, dbName = 'shn_test'): Promise<void> {
+export async function setupAuthTestDatabase(pool: DatabasePool, dbName = 'shn_test_auth_rbac'): Promise<void> {
   await ensureDatabase(dbName);
   const migrationsDir = path.resolve(process.cwd(), 'packages/data-access/migrations');
   await runMigrations(pool, migrationsDir);
 }
 
 export async function cleanAuthAndSecretsTables(pool: DatabasePool): Promise<void> {
+  const dbName = (pool as any)?.options?.database;
+  if (dbName === 'shn_test' && !process.env.ALLOW_LIVE_DB_CLEAN) {
+    throw new Error('Safety guard: cleanAuthAndSecretsTables must not run against the primary runtime database (shn_test). Tests must use isolated databases (e.g. shn_test_auth_*).');
+  }
   await pool.query('TRUNCATE TABLE secrets.versions CASCADE;');
   await pool.query('TRUNCATE TABLE secrets.metadata CASCADE;');
   await pool.query('TRUNCATE TABLE iam.user_roles CASCADE;');

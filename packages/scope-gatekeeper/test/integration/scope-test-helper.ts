@@ -42,7 +42,7 @@ import {
 export const TEST_SCOPE_SIGNING_KEY = 'shn-test-scope-token-signing-key-32b-long!!';
 export const TEST_AUTH_SIGNING_KEY = 'shn-test-auth-context-signing-key-32b-long!!';
 
-export function getScopeTestDatabaseConfig(dbName = 'shn_test'): DatabaseConfig {
+export function getScopeTestDatabaseConfig(dbName = 'shn_test_scope_gatekeeper'): DatabaseConfig {
   return {
     host: process.env.SHN_TEST_DB_HOST || '127.0.0.1',
     port: parseInt(process.env.SHN_TEST_DB_PORT || '54329', 10),
@@ -72,17 +72,21 @@ export async function ensureDatabase(dbName: string): Promise<void> {
   }
 }
 
-export function createScopeTestPool(dbName = 'shn_test'): DatabasePool {
+export function createScopeTestPool(dbName = 'shn_test_scope_gatekeeper'): DatabasePool {
   return createDatabasePool(getScopeTestDatabaseConfig(dbName));
 }
 
-export async function setupScopeTestDatabase(pool: DatabasePool, dbName = 'shn_test'): Promise<void> {
+export async function setupScopeTestDatabase(pool: DatabasePool, dbName = 'shn_test_scope_gatekeeper'): Promise<void> {
   await ensureDatabase(dbName);
   const migrationsDir = path.resolve(process.cwd(), 'packages/data-access/migrations');
   await runMigrations(pool, migrationsDir);
 }
 
 export async function cleanScopeTables(pool: DatabasePool): Promise<void> {
+  const dbName = (pool as any)?.options?.database;
+  if (dbName === 'shn_test' && !process.env.ALLOW_LIVE_DB_CLEAN) {
+    throw new Error('Safety guard: cleanScopeTables must not run against the primary runtime database (shn_test). Tests must use isolated databases (e.g. shn_test_scope_*).');
+  }
   await pool.query('TRUNCATE TABLE workspace.scopes CASCADE;');
 }
 

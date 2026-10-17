@@ -107,6 +107,7 @@ describe('Ingress Gateway & CLI End-to-End (Integration)', () => {
       assetRepo,
       findingRepo,
       executionRepo,
+      scopeRepo,
       assetService,
       findingService,
       capabilityRegistry,
@@ -353,5 +354,67 @@ describe('Ingress Gateway & CLI End-to-End (Integration)', () => {
     assert.strictEqual(jsonResult.exitCode, 0);
     const parsedJson = JSON.parse(jsonResult.output);
     assert.strictEqual(parsedJson.status, 'UP');
+  });
+
+  it('9. Persisted scope policies appear in the correct workspace after startup and refresh', async () => {
+    // 1. Create a scope policy in primary workspace
+    const createScopeRes = await fetch(`${serverUrl}/api/v1/workspaces/${primaryWorkspaceId}/scopes`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'Perimeter Alpha Boundary',
+        description: 'Authorized scope boundary for primary workspace',
+        inclusions: [
+          { type: 'URL', value: 'https://16-16-143-137.sslip.io' },
+          { type: 'DOMAIN', value: '16-16-143-137.sslip.io' },
+        ],
+        exclusions: [
+          { type: 'IPV4', value: '169.254.169.254' },
+          { type: 'CIDR', value: '127.0.0.0/8' },
+        ],
+        allowedActions: ['RECON_PASSIVE', 'PROBING_ACTIVE', 'PORT_SCAN'],
+        portRanges: [{ start: 80, end: 443 }],
+      }),
+    });
+
+    assert.strictEqual(createScopeRes.status, 201, 'Scope creation must return 201 Created');
+    const createdScope = await createScopeRes.json();
+    assert.strictEqual(createdScope.name, 'Perimeter Alpha Boundary');
+    assert.strictEqual(createdScope.workspace_id, primaryWorkspaceId);
+
+    // 2. Query scope policies for primary workspace (initial load)
+    const listRes1 = await fetch(`${serverUrl}/api/v1/workspaces/${primaryWorkspaceId}/scopes`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    assert.strictEqual(listRes1.status, 200);
+    const scopesList1 = await listRes1.json();
+    assert.strictEqual(scopesList1.length, 1);
+    assert.strictEqual(scopesList1[0].id, createdScope.id);
+    assert.strictEqual(scopesList1[0].name, 'Perimeter Alpha Boundary');
+
+    // 3. Simulate UI refresh: subsequent query returns the exact persisted scope
+    const listRes2 = await fetch(`${serverUrl}/api/v1/workspaces/${primaryWorkspaceId}/scopes`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    assert.strictEqual(listRes2.status, 200);
+    const scopesList2 = await listRes2.json();
+    assert.strictEqual(scopesList2.length, 1);
+    assert.strictEqual(scopesList2[0].id, createdScope.id);
+    assert.strictEqual(scopesList2[0].scope_sha256, createdScope.scope_sha256);
+
+    // 4. Verify cross-workspace isolation: access with mismatched workspace token fails closed with 404 (anti-IDOR)
+    const foreignListRes = await fetch(`${serverUrl}/api/v1/workspaces/${foreignWorkspaceId}/scopes`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    assert.strictEqual(foreignListRes.status, 404, 'Foreign workspace must fail closed with 404 anti-IDOR to prevent scope enumeration');
+
+    // 5. Verify direct database persistence: query ScopeRepository directly
+    const directRepo = new ScopeRepository(pool);
+    const persistedDirect = await directRepo.findActiveByWorkspace(primaryWorkspaceId as any);
+    assert.strictEqual(persistedDirect.length, 1);
+    assert.strictEqual(persistedDirect[0].id, createdScope.id);
   });
 });

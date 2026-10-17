@@ -23,12 +23,14 @@ import {
   type ScopeTestServices,
 } from './scope-test-helper.ts';
 
+const DB_NAME = 'shn_test_scope_tenancy';
+
 describe('Tenancy & Scope Isolation (Integration Tests)', () => {
-  const pool = createScopeTestPool();
+  const pool = createScopeTestPool(DB_NAME);
   let services: ScopeTestServices;
 
   before(async () => {
-    await setupScopeTestDatabase(pool);
+    await setupScopeTestDatabase(pool, DB_NAME);
     services = createScopeTestServices(pool);
   });
 
