@@ -2,11 +2,22 @@
  * Shadow : Helix Nebula (SHN) — Authentication View
  *
  * Professional sovereign cybersecurity login & organization registration screen.
+ * Implements robust controlled form state, client-side validation, and secure session handoff.
  */
 
 import type { ApiClient } from '../services/api-client.js';
 import type { AuthStore } from '../state/auth-store.js';
 import type { NotificationStore } from '../state/notification-store.js';
+
+function escapeHtml(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export function renderLoginView(
   container: HTMLElement,
@@ -15,6 +26,14 @@ export function renderLoginView(
   let activeTab: 'login' | 'register' = 'login';
   let isLoading = false;
   let errorMessage: string | null = null;
+
+  // Form input state preservation across renders
+  let loginEmail = '';
+  let loginPassword = '';
+  let regOrgName = '';
+  let regAdminName = '';
+  let regEmail = '';
+  let regPassword = '';
 
   function render() {
     container.innerHTML = `
@@ -31,14 +50,14 @@ export function renderLoginView(
 
           <!-- Tab Switcher -->
           <div style="display:flex;background:var(--bg-input);padding:4px;border-radius:var(--radius-md);margin-bottom:24px;border:1px solid var(--border-medium);">
-            <button id="tab-login" class="btn ${activeTab === 'login' ? 'btn-primary' : 'btn-ghost'}" style="flex:1;font-size:12px;padding:6px;">Sign In</button>
-            <button id="tab-register" class="btn ${activeTab === 'register' ? 'btn-primary' : 'btn-ghost'}" style="flex:1;font-size:12px;padding:6px;">New Organization</button>
+            <button id="tab-login" type="button" class="btn ${activeTab === 'login' ? 'btn-primary' : 'btn-ghost'}" style="flex:1;font-size:12px;padding:6px;" ${isLoading ? 'disabled' : ''}>Sign In</button>
+            <button id="tab-register" type="button" class="btn ${activeTab === 'register' ? 'btn-primary' : 'btn-ghost'}" style="flex:1;font-size:12px;padding:6px;" ${isLoading ? 'disabled' : ''}>New Organization</button>
           </div>
 
           ${errorMessage ? `
-            <div style="padding:12px 14px;border-radius:var(--radius-md);background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);color:#ef4444;font-size:12px;margin-bottom:20px;display:flex;align-items:center;gap:8px;">
+            <div id="auth-error-banner" style="padding:12px 14px;border-radius:var(--radius-md);background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);color:#ef4444;font-size:12px;margin-bottom:20px;display:flex;align-items:center;gap:8px;">
               <span>⚠</span>
-              <span>${errorMessage}</span>
+              <span>${escapeHtml(errorMessage)}</span>
             </div>
           ` : ''}
 
@@ -47,15 +66,15 @@ export function renderLoginView(
             ${activeTab === 'login' ? `
               <div class="form-group" style="margin:0;">
                 <label class="form-label" for="login-email">Operator Email</label>
-                <input class="form-input" id="login-email" type="email" placeholder="operator@shn.sovereign" required autocomplete="email" />
+                <input class="form-input" id="login-email" type="email" placeholder="operator@shn.sovereign" required autocomplete="email" value="${escapeHtml(loginEmail)}" ${isLoading ? 'disabled' : ''} />
               </div>
 
               <div class="form-group" style="margin:0;">
                 <label class="form-label" for="login-password">Password</label>
-                <input class="form-input" id="login-password" type="password" placeholder="••••••••" required autocomplete="current-password" />
+                <input class="form-input" id="login-password" type="password" placeholder="••••••••" required autocomplete="current-password" value="${escapeHtml(loginPassword)}" ${isLoading ? 'disabled' : ''} />
               </div>
 
-              <button type="submit" class="btn btn-primary btn-lg" style="margin-top:8px;" ${isLoading ? 'disabled' : ''}>
+              <button type="submit" id="btn-submit-login" class="btn btn-primary btn-lg" style="margin-top:8px;" ${isLoading ? 'disabled' : ''}>
                 ${isLoading ? 'Authenticating...' : 'Authorize Operator Session'}
               </button>
 
@@ -67,25 +86,25 @@ export function renderLoginView(
             ` : `
               <div class="form-group" style="margin:0;">
                 <label class="form-label" for="reg-org-name">Organization Name</label>
-                <input class="form-input" id="reg-org-name" type="text" placeholder="Apex Cyber Command" required />
+                <input class="form-input" id="reg-org-name" type="text" placeholder="Apex Cyber Command" required value="${escapeHtml(regOrgName)}" ${isLoading ? 'disabled' : ''} />
               </div>
 
               <div class="form-group" style="margin:0;">
                 <label class="form-label" for="reg-admin-name">Administrator Name</label>
-                <input class="form-input" id="reg-admin-name" type="text" placeholder="Chief Security Officer" required />
+                <input class="form-input" id="reg-admin-name" type="text" placeholder="Chief Security Officer" required value="${escapeHtml(regAdminName)}" ${isLoading ? 'disabled' : ''} />
               </div>
 
               <div class="form-group" style="margin:0;">
                 <label class="form-label" for="reg-email">Admin Email</label>
-                <input class="form-input" id="reg-email" type="email" placeholder="admin@domain.sovereign" required autocomplete="email" />
+                <input class="form-input" id="reg-email" type="email" placeholder="admin@domain.sovereign" required autocomplete="email" value="${escapeHtml(regEmail)}" ${isLoading ? 'disabled' : ''} />
               </div>
 
               <div class="form-group" style="margin:0;">
                 <label class="form-label" for="reg-password">Master Password (min 8 chars)</label>
-                <input class="form-input" id="reg-password" type="password" placeholder="••••••••" required minlength="8" autocomplete="new-password" />
+                <input class="form-input" id="reg-password" type="password" placeholder="••••••••" required minlength="8" autocomplete="new-password" value="${escapeHtml(regPassword)}" ${isLoading ? 'disabled' : ''} />
               </div>
 
-              <button type="submit" class="btn btn-primary btn-lg" style="margin-top:8px;" ${isLoading ? 'disabled' : ''}>
+              <button type="submit" id="btn-submit-register" class="btn btn-primary btn-lg" style="margin-top:8px;" ${isLoading ? 'disabled' : ''}>
                 ${isLoading ? 'Initializing...' : 'Provision Sovereign Tenant'}
               </button>
             `}
@@ -100,14 +119,42 @@ export function renderLoginView(
       </div>
     `;
 
+    // Bind Input Listeners to preserve state as user types
+    if (activeTab === 'login') {
+      const emailInput = container.querySelector('#login-email') as HTMLInputElement | null;
+      const passInput = container.querySelector('#login-password') as HTMLInputElement | null;
+
+      emailInput?.addEventListener('input', (e) => {
+        loginEmail = (e.target as HTMLInputElement).value;
+      });
+      passInput?.addEventListener('input', (e) => {
+        loginPassword = (e.target as HTMLInputElement).value;
+      });
+    } else {
+      container.querySelector('#reg-org-name')?.addEventListener('input', (e) => {
+        regOrgName = (e.target as HTMLInputElement).value;
+      });
+      container.querySelector('#reg-admin-name')?.addEventListener('input', (e) => {
+        regAdminName = (e.target as HTMLInputElement).value;
+      });
+      container.querySelector('#reg-email')?.addEventListener('input', (e) => {
+        regEmail = (e.target as HTMLInputElement).value;
+      });
+      container.querySelector('#reg-password')?.addEventListener('input', (e) => {
+        regPassword = (e.target as HTMLInputElement).value;
+      });
+    }
+
     // Bind Tab Switching
     container.querySelector('#tab-login')?.addEventListener('click', () => {
+      if (isLoading) return;
       activeTab = 'login';
       errorMessage = null;
       render();
     });
 
     container.querySelector('#tab-register')?.addEventListener('click', () => {
+      if (isLoading) return;
       activeTab = 'register';
       errorMessage = null;
       render();
@@ -115,46 +162,105 @@ export function renderLoginView(
 
     // Bind Form Submit
     container.querySelector('#auth-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      isLoading = true;
-      errorMessage = null;
-      render();
+      if (typeof e.preventDefault === 'function') e.preventDefault();
 
-      try {
-        if (activeTab === 'login') {
-          const emailInput = container.querySelector('#login-email') as HTMLInputElement;
-          const passInput = container.querySelector('#login-password') as HTMLInputElement;
+      const form = (e.target || e.currentTarget || container.querySelector('#auth-form')) as HTMLFormElement;
 
+      if (activeTab === 'login') {
+        const emailEl = ((form && typeof form.querySelector === 'function' ? form.querySelector('#login-email') : null)
+          || container.querySelector('#login-email')) as HTMLInputElement | null;
+        const passEl = ((form && typeof form.querySelector === 'function' ? form.querySelector('#login-password') : null)
+          || container.querySelector('#login-password')) as HTMLInputElement | null;
+
+        // Retrieve directly from the live DOM elements before changing loading state
+        const email = (emailEl ? emailEl.value : loginEmail).trim();
+        const password = passEl ? passEl.value : loginPassword;
+
+        // Store back in state
+        loginEmail = email;
+        loginPassword = password;
+
+        if (!email || !password) {
+          errorMessage = 'Email and password are required.';
+          render();
+          return;
+        }
+
+        isLoading = true;
+        errorMessage = null;
+        render();
+
+        try {
           const loginRes = await deps.api.login({
-            email: emailInput.value.trim(),
-            password: passInput.value,
+            email,
+            password,
           });
 
           deps.authStore.handleLoginSuccess(loginRes);
           deps.notify.success(`Welcome, ${loginRes.user.displayName}`, 'Authenticated');
           deps.onLoginSuccess();
-        } else {
-          const orgInput = container.querySelector('#reg-org-name') as HTMLInputElement;
-          const nameInput = container.querySelector('#reg-admin-name') as HTMLInputElement;
-          const emailInput = container.querySelector('#reg-email') as HTMLInputElement;
-          const passInput = container.querySelector('#reg-password') as HTMLInputElement;
+        } catch (err: any) {
+          isLoading = false;
+          errorMessage = err.problem?.detail || err.message || 'Authentication failed. Please verify credentials.';
+          render();
+        }
+      } else {
+        const orgEl = ((form && typeof form.querySelector === 'function' ? form.querySelector('#reg-org-name') : null)
+          || container.querySelector('#reg-org-name')) as HTMLInputElement | null;
+        const nameEl = ((form && typeof form.querySelector === 'function' ? form.querySelector('#reg-admin-name') : null)
+          || container.querySelector('#reg-admin-name')) as HTMLInputElement | null;
+        const emailEl = ((form && typeof form.querySelector === 'function' ? form.querySelector('#reg-email') : null)
+          || container.querySelector('#reg-email')) as HTMLInputElement | null;
+        const passEl = ((form && typeof form.querySelector === 'function' ? form.querySelector('#reg-password') : null)
+          || container.querySelector('#reg-password')) as HTMLInputElement | null;
 
+        const organizationName = (orgEl ? orgEl.value : regOrgName).trim();
+        const adminName = (nameEl ? nameEl.value : regAdminName).trim();
+        const adminEmail = (emailEl ? emailEl.value : regEmail).trim();
+        const adminPassword = passEl ? passEl.value : regPassword;
+
+        regOrgName = organizationName;
+        regAdminName = adminName;
+        regEmail = adminEmail;
+        regPassword = adminPassword;
+
+        if (!organizationName || !adminEmail || !adminPassword) {
+          errorMessage = 'All registration fields are required.';
+          render();
+          return;
+        }
+
+        if (adminPassword.length < 8) {
+          errorMessage = 'Master password must be at least 8 characters long.';
+          render();
+          return;
+        }
+
+        isLoading = true;
+        errorMessage = null;
+        render();
+
+        try {
           await deps.api.register({
-            organizationName: orgInput.value.trim(),
-            adminName: nameInput.value.trim(),
-            adminEmail: emailInput.value.trim(),
-            adminPassword: passInput.value,
+            organizationName,
+            adminName: adminName || 'System Administrator',
+            adminEmail,
+            adminPassword,
           });
 
           deps.notify.success('Organization provisioned. Please sign in.', 'Success');
           activeTab = 'login';
+          loginEmail = adminEmail;
+          loginPassword = '';
+          regPassword = '';
           isLoading = false;
+          errorMessage = null;
+          render();
+        } catch (err: any) {
+          isLoading = false;
+          errorMessage = err.problem?.detail || err.message || 'Organization registration failed.';
           render();
         }
-      } catch (err: any) {
-        isLoading = false;
-        errorMessage = err.message || 'Authentication failed. Please verify credentials.';
-        render();
       }
     });
   }

@@ -183,7 +183,7 @@ export function renderFindingsView(
                 }).join('') : `
                   <tr>
                     <td colspan="7" style="text-align:center;padding:36px;color:var(--text-muted);">
-                      ${isLoading ? 'Loading vulnerability findings...' : 'No vulnerability findings matching current filters.'}
+                      ${isLoading ? 'Loading vulnerability findings...' : 'No vulnerability findings recorded for this workspace.'}
                     </td>
                   </tr>
                 `}
@@ -251,7 +251,7 @@ export function renderFindingsView(
 
               <div class="form-group">
                 <label class="form-label" for="fnd-evidence-hash">Raw Evidence SHA-256 Hash (INV-05 Mandatory)</label>
-                <input class="form-input" id="fnd-evidence-hash" type="text" placeholder="64-character lowercase hexadecimal SHA-256 hash" required minlength="64" maxlength="64" value="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" />
+                <input class="form-input" id="fnd-evidence-hash" type="text" placeholder="64-character lowercase hexadecimal SHA-256 hash" required minlength="64" maxlength="64" />
               </div>
 
               <div class="form-group">

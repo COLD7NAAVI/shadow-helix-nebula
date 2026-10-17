@@ -91,8 +91,12 @@ function normalizeBoundaries(b: unknown): ScopeInclusions {
       }
       if (s.startsWith('http://') || s.startsWith('https://')) {
         urls.push(s);
-      } else if (s.includes('/') || /^\d+\.\d+\.\d+\.\d+$/.test(s) || s.includes(':')) {
+      } else if (s.includes('/')) {
         cidrs.push(s);
+      } else if (/^\d+\.\d+\.\d+\.\d+$/.test(s)) {
+        cidrs.push(`${s}/32`);
+      } else if (s.includes(':')) {
+        cidrs.push(s.includes('/') ? s : `${s}/128`);
       } else if (s.includes('.') || s.startsWith('*.')) {
         hostnames.push(s);
       } else {
@@ -108,8 +112,12 @@ function normalizeBoundaries(b: unknown): ScopeInclusions {
   }
   if (typeof b === 'object') {
     const obj = b as Record<string, unknown>;
+    const rawCidrs = Array.isArray(obj['cidrs']) ? (obj['cidrs'] as string[]) : undefined;
+    const normCidrs = rawCidrs
+      ? rawCidrs.map((c) => (/^\d+\.\d+\.\d+\.\d+$/.test(c.trim()) ? `${c.trim()}/32` : c.trim()))
+      : undefined;
     return {
-      cidrs: Array.isArray(obj['cidrs']) ? (obj['cidrs'] as string[]) : undefined,
+      cidrs: normCidrs,
       hostnames: Array.isArray(obj['hostnames']) ? (obj['hostnames'] as string[]) : undefined,
       urls: Array.isArray(obj['urls']) ? (obj['urls'] as string[]) : undefined,
       resources: Array.isArray(obj['resources']) ? (obj['resources'] as string[]) : undefined,

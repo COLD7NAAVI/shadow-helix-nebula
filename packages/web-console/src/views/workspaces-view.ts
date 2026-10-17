@@ -35,6 +35,30 @@ export function renderWorkspacesView(
     }
   }
 
+  function ipv4ToInt(ip: string): number | null {
+    const parts = ip.split('.').map(p => parseInt(p, 10));
+    const p0 = parts[0];
+    const p1 = parts[1];
+    const p2 = parts[2];
+    const p3 = parts[3];
+    if (parts.length !== 4 || p0 === undefined || p1 === undefined || p2 === undefined || p3 === undefined) return null;
+    if (isNaN(p0) || isNaN(p1) || isNaN(p2) || isNaN(p3) || p0 < 0 || p0 > 255 || p1 < 0 || p1 > 255 || p2 < 0 || p2 > 255 || p3 < 0 || p3 > 255) return null;
+    return ((p0 << 24) | (p1 << 16) | (p2 << 8) | p3) >>> 0;
+  }
+
+  function isIpInCidr(ip: string, cidr: string): boolean {
+    const [netStr, maskStr] = cidr.split('/');
+    if (!netStr || !maskStr) return false;
+    const mask = parseInt(maskStr, 10);
+    if (isNaN(mask) || mask < 0 || mask > 32) return false;
+    const ipNum = ipv4ToInt(ip);
+    const netNum = ipv4ToInt(netStr);
+    if (ipNum === null || netNum === null) return false;
+    if (mask === 0) return true;
+    const bitmask = ((0xFFFFFFFF << (32 - mask)) >>> 0);
+    return (ipNum & bitmask) === (netNum & bitmask);
+  }
+
   function evaluateTargetScope(target: string): { status: 'AUTHORIZED' | 'DENIED'; reason: string } {
     const trimmed = target.trim();
     if (!trimmed) return { status: 'DENIED', reason: 'Target cannot be empty' };
@@ -51,14 +75,36 @@ export function renderWorkspacesView(
       return { status: 'DENIED', reason: 'No active scope boundaries defined for this workspace' };
     }
 
+    // Check explicit exclusions first
+    for (const scope of scopes) {
+      if (scope.exclusions && Array.isArray(scope.exclusions)) {
+        for (const exc of scope.exclusions) {
+          if (trimmed === exc.value) {
+            return { status: 'DENIED', reason: `Blocked: Target explicitly excluded by Scope "${scope.name}" (${exc.reason || exc.value})` };
+          }
+          if (exc.type === 'CIDR' && isIpInCidr(trimmed, exc.value)) {
+            return { status: 'DENIED', reason: `Blocked: Target within excluded CIDR block "${exc.value}" in Scope "${scope.name}"` };
+          }
+        }
+      }
+    }
+
     // Check inclusions
     for (const scope of scopes) {
-      for (const inc of scope.inclusions) {
-        if (trimmed === inc.value || trimmed.startsWith(inc.value)) {
-          return { status: 'AUTHORIZED', reason: `Authorized by Scope "${scope.name}" (Rule: ${inc.value})` };
-        }
-        if (inc.type === 'CIDR' && (trimmed.startsWith('10.') || trimmed.startsWith('192.168.'))) {
-          return { status: 'AUTHORIZED', reason: `Authorized within CIDR block "${inc.value}" in Scope "${scope.name}"` };
+      if (scope.inclusions && Array.isArray(scope.inclusions)) {
+        for (const inc of scope.inclusions) {
+          if (trimmed === inc.value) {
+            return { status: 'AUTHORIZED', reason: `Authorized by Scope "${scope.name}" (Rule: ${inc.value})` };
+          }
+          if (inc.type === 'CIDR' && isIpInCidr(trimmed, inc.value)) {
+            return { status: 'AUTHORIZED', reason: `Authorized within CIDR block "${inc.value}" in Scope "${scope.name}"` };
+          }
+          if (inc.type === 'DOMAIN' && (trimmed.toLowerCase() === inc.value.toLowerCase() || trimmed.toLowerCase().endsWith('.' + inc.value.toLowerCase()))) {
+            return { status: 'AUTHORIZED', reason: `Authorized domain match "${inc.value}" in Scope "${scope.name}"` };
+          }
+          if (inc.type === 'URL' && trimmed.startsWith(inc.value)) {
+            return { status: 'AUTHORIZED', reason: `Authorized URL prefix "${inc.value}" in Scope "${scope.name}"` };
+          }
         }
       }
     }
@@ -203,7 +249,7 @@ export function renderWorkspacesView(
               id="scope-test-input"
               class="form-input"
               type="text"
-              placeholder="e.g. 10.240.0.1 or 169.254.169.254 or api.sovereign.internal"
+              placeholder="e.g. 192.168.1.50 or 169.254.169.254 or api.internal.corp"
               value="${verificationTarget}"
               style="flex:1;min-width:240px;"
             />
@@ -262,15 +308,15 @@ export function renderWorkspacesView(
             <div class="modal-body">
               <div class="form-group">
                 <label class="form-label" for="scope-name">Policy Name</label>
-                <input class="form-input" id="scope-name" type="text" placeholder="e.g. Production Perimeter Inclusions" required />
+                <input class="form-input" id="scope-name" type="text" placeholder="e.g. Authorized Network Perimeter" required />
               </div>
               <div class="form-group">
                 <label class="form-label" for="scope-desc">Description</label>
                 <input class="form-input" id="scope-desc" type="text" placeholder="Authorized operational targets" />
               </div>
               <div class="form-group">
-                <label class="form-label" for="scope-inclusions">Target Inclusions (Comma-separated IPs or CIDRs)</label>
-                <input class="form-input" id="scope-inclusions" type="text" placeholder="10.240.0.0/24, 192.168.1.1, api.sovereign.internal" required />
+                <label class="form-label" for="scope-inclusions">Target Inclusions (Comma-separated IPs, CIDRs, or FQDNs)</label>
+                <input class="form-input" id="scope-inclusions" type="text" placeholder="10.0.0.0/16, 192.168.1.1, api.internal.corp" required />
               </div>
               <div class="form-group">
                 <label class="form-label" for="scope-ports">Port Range (Start-End)</label>

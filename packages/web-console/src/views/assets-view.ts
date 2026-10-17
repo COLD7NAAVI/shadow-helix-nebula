@@ -167,7 +167,7 @@ export function renderAssetsView(
                 }).join('') : `
                   <tr>
                     <td colspan="8" style="text-align:center;padding:36px;color:var(--text-muted);">
-                      ${isLoading ? 'Loading assets...' : 'No monitored assets found matching filters.'}
+                      ${isLoading ? 'Loading assets...' : 'No monitored assets registered for this workspace.'}
                     </td>
                   </tr>
                 `}
@@ -188,7 +188,7 @@ export function renderAssetsView(
             <div class="modal-body">
               <div class="form-group">
                 <label class="form-label" for="reg-asset-target">Target Endpoint / Address</label>
-                <input class="form-input" id="reg-asset-target" type="text" placeholder="10.240.0.1 or api.domain.sovereign" required />
+                <input class="form-input" id="reg-asset-target" type="text" placeholder="192.168.1.100 or service.internal.corp" required />
               </div>
               <div class="form-group">
                 <label class="form-label" for="reg-asset-name">Friendly Name</label>

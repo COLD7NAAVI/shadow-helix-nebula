@@ -63,7 +63,15 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions): Middleware
     try {
       let candidate = tokenStr;
       if (!candidate.startsWith('{')) {
-        candidate = Buffer.from(tokenStr, 'base64').toString('utf8');
+        const buf = Buffer.from(tokenStr, 'base64');
+        // Validate that tokenStr is well-formed base64 without trailing garbage
+        const normalized = buf.toString('base64').replace(/=+$/, '');
+        const inputNorm = tokenStr.replace(/=+$/, '');
+        if (normalized === inputNorm) {
+          candidate = buf.toString('utf8');
+        } else {
+          candidate = '';
+        }
       }
       if (candidate.startsWith('{') && candidate.endsWith('}')) {
         const parsed = JSON.parse(candidate);

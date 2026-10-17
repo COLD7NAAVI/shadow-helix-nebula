@@ -140,15 +140,14 @@ export function renderExecutionsView(
                   ${capabilities.length > 0 ? capabilities.map((c) => `
                     <option value="${c.uri || c.id}">${c.name} (${c.uri || c.id})</option>
                   `).join('') : `
-                    <option value="cap:network:port-scan:v1">Network Port Scanner (cap:network:port-scan:v1)</option>
-                    <option value="cap:http:service-discovery:v1">HTTP Service Discovery (cap:http:service-discovery:v1)</option>
+                    <option value="" disabled selected>No capabilities registered in catalog</option>
                   `}
                 </select>
               </div>
 
               <div class="form-group">
                 <label class="form-label" for="launch-target">Target IP / Domain / URL</label>
-                <input class="form-input" id="launch-target" type="text" placeholder="10.240.0.1 or https://gateway.sovereign.internal" required />
+                <input class="form-input" id="launch-target" type="text" placeholder="192.168.1.10 or https://api.internal.network" required />
               </div>
 
               <div class="form-group">

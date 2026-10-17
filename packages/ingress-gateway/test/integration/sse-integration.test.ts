@@ -31,7 +31,7 @@ describe('SSE Real-Time Stream Live Integration', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: 'operator@shn.sovereign',
-          password: 'Password123!',
+          password: process.env.SHN_INITIAL_ADMIN_PASSWORD || 'Password123!',
         }),
       });
       assert.equal(loginRes.status, 200);

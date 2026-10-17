@@ -20,6 +20,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function main() {
+  const envFile = path.resolve(process.cwd(), '.env');
+  if (fs.existsSync(envFile) && typeof process.loadEnvFile === 'function') {
+    try {
+      process.loadEnvFile(envFile);
+    } catch {}
+  }
+
   console.log('[*] SHADOW : HELIX NEBULA — Sovereign Migration Subsystem');
 
   const dbConfig = {

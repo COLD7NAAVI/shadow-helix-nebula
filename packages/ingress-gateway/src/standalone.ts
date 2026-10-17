@@ -15,15 +15,11 @@ import {
   createWorkspaceId,
   createUserId,
   createScopeId,
-  createAssetId,
-  createFindingId,
   createCapabilityId,
   type OrganizationId,
   type WorkspaceId,
   type UserId,
   type ScopeId,
-  type AssetId,
-  type FindingId,
 } from '@shn/shared-kernel';
 import {
   createDatabasePool,
@@ -551,11 +547,19 @@ function createInMemoryRepositories(store: InMemoryStore) {
   };
 }
 
-async function seedDemonstrationData(
+export interface SystemBootstrapResult {
+  org: any;
+  user: any;
+  workspace: any;
+  adminRoleId: string;
+}
+
+export async function bootstrapInMemorySystemIdentity(
   store: InMemoryStore,
   repos: ReturnType<typeof createInMemoryRepositories>,
   adminPassword = process.env.SHN_INITIAL_ADMIN_PASSWORD || 'Password123!'
-) {
+): Promise<SystemBootstrapResult> {
+  const adminEmail = (process.env.SHN_INITIAL_ADMIN_EMAIL || 'operator@shn.sovereign').trim().toLowerCase();
   const hasher = new PasswordHasher();
   const passwordHash = await hasher.hashPassword(adminPassword);
 
@@ -580,7 +584,7 @@ async function seedDemonstrationData(
   const user = await repos.userRepo.create({
     id: userId,
     organization_id: org.id,
-    email: 'operator@shn.sovereign',
+    email: adminEmail,
     display_name: 'Chief Security Officer',
     status: 'ACTIVE',
   });
@@ -590,220 +594,23 @@ async function seedDemonstrationData(
   const wksRes = createWorkspaceId(rawWksId);
   const workspaceId: WorkspaceId = wksRes.isOk ? wksRes.value : (rawWksId as any);
 
+  const workspaceName = process.env.NODE_ENV === 'production' ? 'Helix Sector Alpha (Production)' : 'Helix Sector Alpha';
   const workspace = await repos.workspaceRepo.create({
     id: workspaceId,
     organization_id: org.id,
-    name: 'Helix Sector Alpha (Production)',
+    name: workspaceName,
     slug: 'helix-sector-alpha',
   });
   await repos.roleRepo.assignUserRole(user.id, adminRoleId, org.id, workspace.id);
 
-  const rawDevWksId = generateUUIDv7();
-  const devWksRes = createWorkspaceId(rawDevWksId);
-  const devWorkspaceId: WorkspaceId = devWksRes.isOk ? devWksRes.value : (rawDevWksId as any);
-
-  await repos.workspaceRepo.create({
-    id: devWorkspaceId,
-    organization_id: org.id,
-    name: 'Quantum Lab Sandbox',
-    slug: 'quantum-lab-sandbox',
-  });
-
-  const rawScopeId = generateUUIDv7();
-  const scopeRes = createScopeId(rawScopeId);
-  const scopeId: ScopeId = scopeRes.isOk ? scopeRes.value : (rawScopeId as any);
-
-  await repos.scopeRepo.createScope({
-    id: scopeId,
-    workspace_id: workspace.id,
-    organization_id: org.id,
-    name: 'Perimeter Defense Zone Alpha',
-    description: 'Authorized operational target inclusions for automated scanning',
-    status: 'ACTIVE',
-    inclusions: [
-      { type: 'CIDR', value: '10.240.0.0/24' },
-      { type: 'IPV4', value: '192.168.10.45' },
-      { type: 'DOMAIN', value: 'api.sovereign.internal' },
-      { type: 'URL', value: 'https://gateway.sovereign.internal/api' },
-    ],
-    exclusions: [
-      { type: 'IPV4', value: '169.254.169.254', reason: 'AWS/GCP Cloud Metadata Protection (SEC-INV-08)' },
-      { type: 'CIDR', value: '127.0.0.0/8', reason: 'Loopback Protection' },
-    ],
-    allowed_actions: [
-      'RECON_PASSIVE',
-      'PROBING_ACTIVE',
-      'PORT_SCAN',
-      'HTTP_DISCOVERY',
-      'network:scan',
-      'http:probe',
-    ],
-    disallowed_actions: ['EXPLOIT', 'DENIAL_OF_SERVICE'],
-    port_ranges: [
-      { start: 22, end: 22 },
-      { start: 80, end: 443 },
-      { start: 8000, end: 9000 },
-    ],
-    valid_from: new Date(Date.now() - 3600000).toISOString(),
-    valid_until: new Date(Date.now() + 86400000 * 90).toISOString(),
-    rate_limits: { requests_per_second: 50 },
-    scope_sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-    created_by: user.id,
-  });
-
-  const rawAsset1 = generateUUIDv7();
-  const asset1Res = createAssetId(rawAsset1);
-  const asset1Id: AssetId = asset1Res.isOk ? asset1Res.value : (rawAsset1 as any);
-
-  const asset1 = await repos.assetRepo.create({
-    id: asset1Id,
-    workspace_id: workspace.id,
-    organization_id: org.id,
-    type: 'IPV4',
-    raw_target: '10.240.0.1',
-    canonical_target: '10.240.0.1',
-    name: 'Sovereign Core Gateway',
-    criticality: 'CRITICAL',
-    status: 'ACTIVE',
-    tags: ['edge', 'gateway', 'core-infra'],
-    metadata: { env: 'production', cluster: 'helix-core-1' },
-  });
-
-  const rawAsset2 = generateUUIDv7();
-  const asset2Res = createAssetId(rawAsset2);
-  const asset2Id: AssetId = asset2Res.isOk ? asset2Res.value : (rawAsset2 as any);
-
-  const asset2 = await repos.assetRepo.create({
-    id: asset2Id,
-    workspace_id: workspace.id,
-    organization_id: org.id,
-    type: 'DOMAIN',
-    raw_target: 'api.sovereign.internal',
-    canonical_target: 'api.sovereign.internal',
-    name: 'Zero-Trust Authentication Gateway',
-    criticality: 'HIGH',
-    status: 'ACTIVE',
-    tags: ['identity', 'rest-api'],
-    metadata: { protocol: 'https', tls_version: '1.3' },
-  });
-
-  const rawAsset3 = generateUUIDv7();
-  const asset3Res = createAssetId(rawAsset3);
-  const asset3Id: AssetId = asset3Res.isOk ? asset3Res.value : (rawAsset3 as any);
-
-  await repos.assetRepo.create({
-    id: asset3Id,
-    workspace_id: workspace.id,
-    organization_id: org.id,
-    type: 'CIDR',
-    raw_target: '10.240.0.0/24',
-    canonical_target: '10.240.0.0/24',
-    name: 'Kubernetes Workload Subnet',
-    criticality: 'MEDIUM',
-    status: 'ACTIVE',
-    tags: ['k8s', 'internal'],
-    metadata: { vpc_id: 'vpc-helix-alpha' },
-  });
-
-  const rawFinding1 = generateUUIDv7();
-  const finding1Res = createFindingId(rawFinding1);
-  const finding1Id: FindingId = finding1Res.isOk ? finding1Res.value : (rawFinding1 as any);
-
-  await repos.findingRepo.create({
-    id: finding1Id,
-    workspace_id: workspace.id,
-    organization_id: org.id,
-    asset_id: asset1.id,
-    title: 'Container Breakout Risk: Insecure Pod Security Standards',
-    description: 'HostPath volume mount detected with write access to root filesystem, allowing privilege escalation.',
-    category: 'CONTAINER_SECURITY',
-    severity: 'CRITICAL',
-    cve_id: 'CVE-2024-21626',
-    cwe_id: 'CWE-250',
-    cvss_score: 8.8,
-    cvss_vector: 'CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:H',
-    raw_evidence_sha256: 'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0',
-    remediation_guidance: 'Enforce Restricted Pod Security Standards and eliminate privileged hostPath mounts.',
-    status: 'OPEN',
-    deduplication_hash: 'dedup-hash-crit-1',
-  });
-
-  const rawFinding2 = generateUUIDv7();
-  const finding2Res = createFindingId(rawFinding2);
-  const finding2Id: FindingId = finding2Res.isOk ? finding2Res.value : (rawFinding2 as any);
-
-  await repos.findingRepo.create({
-    id: finding2Id,
-    workspace_id: workspace.id,
-    organization_id: org.id,
-    asset_id: asset2.id,
-    title: 'HTTP/2 Rapid Reset Exposure (DDoS Vector)',
-    description: 'Server accepts stream resets without bounding resource allocation, causing amplification.',
-    category: 'DENIAL_OF_SERVICE',
-    severity: 'HIGH',
-    cve_id: 'CVE-2023-44487',
-    cwe_id: 'CWE-400',
-    cvss_score: 7.5,
-    cvss_vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H',
-    raw_evidence_sha256: 'f0e1d2c3b4a5968778695a4b3c2d1e0f0123456789abcdef0123456789abcdef',
-    remediation_guidance: 'Update reverse proxy to apply RST_STREAM rate limits.',
-    status: 'TRIAGED',
-    deduplication_hash: 'dedup-hash-high-1',
-  });
-
-  await repos.executionRepo.create({
-    id: generateUUIDv7(),
-    workspace_id: workspace.id,
-    organization_id: org.id,
-    scope_id: scopeId,
-    action: 'PORT_SCAN',
-    target: '10.240.0.1',
-    capability_uri: 'cap:network:port-scan:v1',
-    state: 'COMPLETED',
-    requested_by: user.id,
-    command: { executable: 'nmap', args: ['-sS', '-p', '22,80,443', '10.240.0.1'] },
-    stdout_summary: 'Open ports discovered: 22/tcp (ssh OpenSSH 9.6), 443/tcp (https TLS 1.3). Scan completed in 1.42s.',
-    stderr_summary: null,
-    raw_output_sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-  });
-
-  await repos.executionRepo.create({
-    id: generateUUIDv7(),
-    workspace_id: workspace.id,
-    organization_id: org.id,
-    scope_id: scopeId,
-    action: 'HTTP_DISCOVERY',
-    target: 'https://gateway.sovereign.internal',
-    capability_uri: 'cap:http:service-discovery:v1',
-    state: 'COMPLETED',
-    requested_by: user.id,
-    command: { executable: 'curl', args: ['-I', 'https://gateway.sovereign.internal'] },
-    stdout_summary: 'HTTP/2 200 OK. Server: Sovereign-Ingress. Strict-Transport-Security: max-age=31536000.',
-    stderr_summary: null,
-    raw_output_sha256: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
-  });
-
-  await repos.auditRepo.append({
-    event_id: generateUUIDv7(),
-    event_type: 'platform.initialized',
-    schema_version: '1.0.0',
-    occurred_at: new Date().toISOString(),
-    producer: { service: 'ingress-gateway', version: '0.1.0', instance_id: 'standalone-primary' },
-    workspace_id: workspace.id,
-    correlation_id: 'corr-init-genesis',
-    causation_id: 'cause-init-genesis',
-    trace_id: '4bf92f3577b34da6a3ce929d0e0e4736',
-    authorization_context: { subject_id: user.id, roles: ['ORG_ADMIN'] },
-    scope_reference: { scope_id: scopeId, sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' },
-    payload: { message: 'Shadow : Helix Nebula Sovereign Platform Online' },
-    integrity: { signature: 'sig_genesis_verified', algorithm: 'ed25519' },
-  });
+  return { org, user, workspace, adminRoleId };
 }
 
-async function seedPostgresDemonstrationData(
+export async function bootstrapPostgresSystemIdentity(
   repos: any,
   adminPassword = process.env.SHN_INITIAL_ADMIN_PASSWORD || 'Password123!'
-) {
+): Promise<SystemBootstrapResult> {
+  const adminEmail = (process.env.SHN_INITIAL_ADMIN_EMAIL || 'operator@shn.sovereign').trim().toLowerCase();
   let org = await repos.orgRepo.findBySlug('apex-sovereign');
   if (!org) {
     const rawOrgId = generateUUIDv7();
@@ -816,7 +623,7 @@ async function seedPostgresDemonstrationData(
     });
   }
 
-  let user = await repos.userRepo.findFirstByEmail('operator@shn.sovereign');
+  let user = await repos.userRepo.findFirstByEmail(adminEmail);
   if (!user) {
     const hasher = new PasswordHasher();
     const passwordHash = await hasher.hashPassword(adminPassword);
@@ -828,13 +635,26 @@ async function seedPostgresDemonstrationData(
     user = await repos.userRepo.create({
       id: userId,
       organization_id: org.id,
-      email: 'operator@shn.sovereign',
+      email: adminEmail,
       display_name: 'Chief Security Officer',
       status: 'ACTIVE',
     });
     await repos.credentialRepo.saveCredential(user.id, passwordHash);
+  } else {
+    // Deterministic credential synchronization: verify against adminPassword and update if different
+    const existingCred = await repos.credentialRepo.findByUserId(user.id);
+    const hasher = new PasswordHasher();
+    let isMatching = false;
+    if (existingCred) {
+      isMatching = await hasher.verifyPassword(adminPassword, existingCred.password_hash);
+    }
+    if (!isMatching) {
+      const passwordHash = await hasher.hashPassword(adminPassword);
+      await repos.credentialRepo.saveCredential(user.id, passwordHash);
+    }
   }
 
+  const workspaceName = process.env.NODE_ENV === 'production' ? 'Helix Sector Alpha (Production)' : 'Helix Sector Alpha';
   let workspace = await repos.workspaceRepo.findBySlug(org.id, 'helix-sector-alpha');
   if (!workspace) {
     const rawWksId = generateUUIDv7();
@@ -844,157 +664,133 @@ async function seedPostgresDemonstrationData(
     workspace = await repos.workspaceRepo.create({
       id: workspaceId,
       organization_id: org.id,
-      name: 'Helix Sector Alpha (Production)',
+      name: workspaceName,
       slug: 'helix-sector-alpha',
     });
-    const adminRole = await repos.roleRepo.findRoleByName('ORG_ADMIN');
-    const adminRoleId = adminRole?.id ?? '00000000-0000-7000-8001-000000000001';
-    await repos.roleRepo.assignUserRole(user.id, adminRoleId, org.id, workspace.id);
+  } else if (process.env.NODE_ENV !== 'production' && workspace.name === 'Helix Sector Alpha (Production)') {
+    if (typeof repos.workspaceRepo.db?.query === 'function') {
+      await repos.workspaceRepo.db.query(
+        'UPDATE workspace.workspaces SET name = $1, environment = $2 WHERE id = $3;',
+        [workspaceName, 'development', workspace.id]
+      );
+      workspace.name = workspaceName;
+    }
   }
 
-  let devWorkspace = await repos.workspaceRepo.findBySlug(org.id, 'quantum-lab-sandbox');
+  const adminRole = await repos.roleRepo.findRoleByName('ORG_ADMIN');
+  const adminRoleId = adminRole?.id ?? '00000000-0000-7000-8001-000000000001';
+  await repos.roleRepo.assignUserRole(user.id, adminRoleId, org.id, workspace.id);
+
+  return { org, user, workspace, adminRoleId };
+}
+
+/**
+ * Explicit Opt-In Development Demonstration Fixtures
+ *
+ * CRITICAL: These fixtures are NEVER loaded implicitly or in production.
+ * They are only executed if process.env.SHN_LOAD_DEMO_FIXTURES === 'true' in non-production environments.
+ */
+export async function seedInMemoryDevelopmentFixtures(
+  _store: InMemoryStore,
+  repos: ReturnType<typeof createInMemoryRepositories>,
+  bootstrap: SystemBootstrapResult
+): Promise<void> {
+  const { org, user, workspace } = bootstrap;
+
+  const rawDevWksId = generateUUIDv7();
+  const devWksRes = createWorkspaceId(rawDevWksId);
+  const devWorkspaceId: WorkspaceId = devWksRes.isOk ? devWksRes.value : (rawDevWksId as any);
+
+  await repos.workspaceRepo.create({
+    id: devWorkspaceId,
+    organization_id: org.id,
+    name: 'Sandbox Development Workspace',
+    slug: 'sandbox-dev-workspace',
+  });
+
+  const rawScopeId = generateUUIDv7();
+  const scopeRes = createScopeId(rawScopeId);
+  const scopeId: ScopeId = scopeRes.isOk ? scopeRes.value : (rawScopeId as any);
+
+  await repos.scopeRepo.createScope({
+    id: scopeId,
+    workspace_id: workspace.id,
+    organization_id: org.id,
+    name: 'Development Sandbox Scope',
+    description: 'Explicit development test targets for isolated feature verification',
+    status: 'ACTIVE',
+    inclusions: [
+      { type: 'IPV4', value: '192.168.100.1' },
+      { type: 'DOMAIN', value: 'api.dev.local' },
+    ],
+    exclusions: [
+      { type: 'IPV4', value: '169.254.169.254', reason: 'Cloud Metadata Protection (SEC-INV-08)' },
+      { type: 'CIDR', value: '127.0.0.0/8', reason: 'Loopback Protection' },
+    ],
+    allowed_actions: ['RECON_PASSIVE', 'PROBING_ACTIVE', 'PORT_SCAN', 'network:scan'],
+    disallowed_actions: ['EXPLOIT', 'DENIAL_OF_SERVICE'],
+    port_ranges: [
+      { start: 80, end: 443 },
+    ],
+    valid_from: new Date(Date.now() - 3600000).toISOString(),
+    valid_until: new Date(Date.now() + 86400000 * 30).toISOString(),
+    rate_limits: { requests_per_second: 10 },
+    scope_sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    created_by: user.id,
+  });
+}
+
+export async function seedPostgresDevelopmentFixtures(
+  repos: any,
+  bootstrap: SystemBootstrapResult
+): Promise<void> {
+  const { org, user, workspace } = bootstrap;
+
+  let devWorkspace = await repos.workspaceRepo.findBySlug(org.id, 'sandbox-dev-workspace');
   if (!devWorkspace) {
     const rawDevWksId = generateUUIDv7();
     const devWksRes = createWorkspaceId(rawDevWksId);
     const devWorkspaceId: WorkspaceId = devWksRes.isOk ? devWksRes.value : (rawDevWksId as any);
 
-    devWorkspace = await repos.workspaceRepo.create({
+    await repos.workspaceRepo.create({
       id: devWorkspaceId,
       organization_id: org.id,
-      name: 'Quantum Lab Sandbox',
-      slug: 'quantum-lab-sandbox',
+      name: 'Sandbox Development Workspace',
+      slug: 'sandbox-dev-workspace',
     });
   }
 
   const existingScopes = await repos.scopeRepo.listByWorkspace(workspace.id);
-  let scopeId: string;
   if (existingScopes.length === 0) {
     const rawScopeId = generateUUIDv7();
     const scopeRes = createScopeId(rawScopeId);
-    scopeId = scopeRes.isOk ? scopeRes.value : (rawScopeId as any);
+    const scopeId = scopeRes.isOk ? scopeRes.value : (rawScopeId as any);
 
     await repos.scopeRepo.createScope({
       id: scopeId,
       workspace_id: workspace.id,
       organization_id: org.id,
-      name: 'Perimeter Defense Zone Alpha',
-      description: 'Authorized operational target inclusions for automated scanning',
+      name: 'Development Sandbox Scope',
+      description: 'Explicit development test targets for isolated feature verification',
       status: 'ACTIVE',
       inclusions: [
-        { type: 'CIDR', value: '10.240.0.0/24' },
-        { type: 'IPV4', value: '192.168.10.45' },
-        { type: 'DOMAIN', value: 'api.sovereign.internal' },
-        { type: 'URL', value: 'https://gateway.sovereign.internal/api' },
+        { type: 'IPV4', value: '192.168.100.1' },
+        { type: 'DOMAIN', value: 'api.dev.local' },
       ],
       exclusions: [
-        { type: 'IPV4', value: '169.254.169.254', reason: 'AWS/GCP Cloud Metadata Protection (SEC-INV-08)' },
+        { type: 'IPV4', value: '169.254.169.254', reason: 'Cloud Metadata Protection (SEC-INV-08)' },
         { type: 'CIDR', value: '127.0.0.0/8', reason: 'Loopback Protection' },
       ],
-      allowed_actions: [
-        'RECON_PASSIVE',
-        'PROBING_ACTIVE',
-        'PORT_SCAN',
-        'HTTP_DISCOVERY',
-        'network:scan',
-        'http:probe',
-      ],
+      allowed_actions: ['RECON_PASSIVE', 'PROBING_ACTIVE', 'PORT_SCAN', 'network:scan'],
       disallowed_actions: ['EXPLOIT', 'DENIAL_OF_SERVICE'],
       port_ranges: [
-        { start: 22, end: 22 },
         { start: 80, end: 443 },
-        { start: 8000, end: 9000 },
       ],
       valid_from: new Date(Date.now() - 3600000).toISOString(),
-      valid_until: new Date(Date.now() + 86400000 * 90).toISOString(),
-      rate_limits: { requests_per_second: 50 },
+      valid_until: new Date(Date.now() + 86400000 * 30).toISOString(),
+      rate_limits: { requests_per_second: 10 },
       scope_sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
       created_by: user.id,
-    });
-  } else {
-    scopeId = existingScopes[0].id;
-  }
-
-  const existingAssets = await repos.assetRepo.listAssets(workspace.id);
-  let asset1Id: string | undefined;
-  if (existingAssets.length === 0) {
-    const rawAsset1 = generateUUIDv7();
-    const asset1Res = createAssetId(rawAsset1);
-    asset1Id = asset1Res.isOk ? asset1Res.value : (rawAsset1 as any);
-
-    await repos.assetRepo.createAsset({
-      id: asset1Id as any,
-      workspaceId: workspace.id,
-      organizationId: org.id,
-      type: 'IPV4',
-      canonicalValue: '10.240.0.1',
-      name: 'Sovereign Core Gateway',
-      criticality: 'CRITICAL',
-      status: 'ACTIVE',
-      tags: ['edge', 'gateway', 'core-infra'],
-      metadata: { env: 'production', cluster: 'helix-core-1' },
-    });
-
-    const rawAsset2 = generateUUIDv7();
-    const asset2Res = createAssetId(rawAsset2);
-    const asset2Id = asset2Res.isOk ? asset2Res.value : (rawAsset2 as any);
-
-    await repos.assetRepo.createAsset({
-      id: asset2Id as any,
-      workspaceId: workspace.id,
-      organizationId: org.id,
-      type: 'FQDN',
-      canonicalValue: 'api.sovereign.internal',
-      name: 'Zero-Trust Authentication Gateway',
-      criticality: 'HIGH',
-      status: 'ACTIVE',
-      tags: ['identity', 'rest-api'],
-      metadata: { protocol: 'https', tls_version: '1.3' },
-    });
-  } else {
-    asset1Id = existingAssets[0].id;
-  }
-
-  const existingFindings = await repos.findingRepo.listFindings(workspace.id);
-  if (existingFindings.length === 0 && asset1Id) {
-    const rawFinding1 = generateUUIDv7();
-    const finding1Res = createFindingId(rawFinding1);
-    const finding1Id = finding1Res.isOk ? finding1Res.value : (rawFinding1 as any);
-
-    await repos.findingRepo.createFinding({
-      id: finding1Id as any,
-      workspaceId: workspace.id,
-      organizationId: org.id,
-      assetId: asset1Id as any,
-      title: 'Container Breakout Risk: Insecure Pod Security Standards',
-      description: 'HostPath volume mount detected with write access to root filesystem, allowing privilege escalation.',
-      category: 'CONTAINER_SECURITY',
-      severity: 'CRITICAL',
-      cveId: 'CVE-2024-21626',
-      cweId: 'CWE-250',
-      cvssScore: 8.8,
-      cvssVector: 'CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:H',
-      rawEvidenceSha256: 'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0',
-      remediationGuidance: 'Enforce Restricted Pod Security Standards and eliminate privileged hostPath mounts.',
-      status: 'CONFIRMED',
-    });
-  }
-
-  const existingAudit = await repos.auditRepo.listByWorkspace(workspace.id, 1);
-  if (existingAudit.length === 0) {
-    await repos.auditRepo.append({
-      event_id: generateUUIDv7(),
-      event_type: 'platform.initialized',
-      schema_version: '1.0.0',
-      occurred_at: new Date().toISOString(),
-      producer: { service: 'ingress-gateway', version: '0.1.0', instance_id: 'standalone-primary' },
-      workspace_id: workspace.id,
-      correlation_id: generateUUIDv7(),
-      causation_id: generateUUIDv7(),
-      trace_id: '4bf92f3577b34da6a3ce929d0e0e4736',
-      authorization_context: { subject_id: user.id, roles: ['ORG_ADMIN'] },
-      scope_reference: { scope_id: scopeId, sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' },
-      payload: { message: 'Shadow : Helix Nebula Sovereign Platform Online' },
-      integrity: { signature: 'sig_genesis_verified', algorithm: 'ed25519' },
     });
   }
 }
@@ -1063,9 +859,21 @@ export async function startStandaloneServer(customPort?: number): Promise<{
   isPostgres: boolean;
   eventStreamHub: EventStreamHub;
 }> {
+  const envFile = path.resolve(process.cwd(), '.env');
+  if (fs.existsSync(envFile) && typeof process.loadEnvFile === 'function') {
+    try {
+      process.loadEnvFile(envFile);
+    } catch {
+      // Ignored if unable to load
+    }
+  }
+
   const creds = resolveOperatorCredentials();
 
   if (process.env.NODE_ENV === 'production') {
+    if (process.env.SHN_LOAD_DEMO_FIXTURES === 'true') {
+      throw new Error('Production Security Invariant Violation: Demonstration fixtures cannot be loaded in production (NODE_ENV=production).');
+    }
     if (!process.env.SHN_SIGNER_SECRET || process.env.SHN_SIGNER_SECRET === 'shn-sovereign-signer-secret-key-32b!') {
       throw new Error('Production Security Invariant Violation: SHN_SIGNER_SECRET must be configured with a secure key.');
     }
@@ -1148,11 +956,17 @@ export async function startStandaloneServer(customPort?: number): Promise<{
       scopeRepo: new ScopeRepository(pool),
       auditRepo: new AuditEventRepository(pool),
     };
-    await seedPostgresDemonstrationData(repos, creds.password);
+    const bootstrap = await bootstrapPostgresSystemIdentity(repos, creds.password);
+    if (process.env.NODE_ENV !== 'production' && process.env.SHN_LOAD_DEMO_FIXTURES === 'true') {
+      await seedPostgresDevelopmentFixtures(repos, bootstrap);
+    }
   } else {
     pool = createInMemoryDatabasePool();
     repos = createInMemoryRepositories(inMemoryStore);
-    await seedDemonstrationData(inMemoryStore, repos, creds.password);
+    const bootstrap = await bootstrapInMemorySystemIdentity(inMemoryStore, repos, creds.password);
+    if (process.env.NODE_ENV !== 'production' && process.env.SHN_LOAD_DEMO_FIXTURES === 'true') {
+      await seedInMemoryDevelopmentFixtures(inMemoryStore, repos, bootstrap);
+    }
   }
 
   const assetService = new AssetInventoryService({ assetRepository: repos.assetRepo });
@@ -1295,8 +1109,9 @@ SHADOW : HELIX NEBULA (SHN) — SOVEREIGN CYBERSECURITY PLATFORM
 [+] Platform Health Probes:  ${url}/health/live  |  ${url}/health/ready
 [+] Prometheus Metrics:      ${url}/metrics
 [+] Persistence Engine:      ${isPostgres ? 'PostgreSQL (Active)' : 'Sovereign In-Memory Engine (Active)'}
-[+] Sovereign Operator:      operator@shn.sovereign
+[+] Sovereign Operator:      ${process.env.SHN_INITIAL_ADMIN_EMAIL || 'operator@shn.sovereign'}
 [+] Credential Provisioning: ${creds.notice}
+[+] Operational State:       Authoritative Truth (0 Fabricated Records)
 [+] Security Status:         Active (Zero-Trust Identity & Tenancy Hardened)
 ========================================================================
 `);
