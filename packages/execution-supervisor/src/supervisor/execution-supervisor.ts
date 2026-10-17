@@ -40,12 +40,12 @@ import {
 } from '@shn/shared-kernel';
 import { ErrorCode, type ErrorCodeType, type ProblemDetails } from '@shn/error-catalog';
 import {
-  PermissionBit,
   SecurityContextSigner,
 } from '@shn/auth-rbac';
 import {
   type IScopeGatekeeper,
   TenancyValidator,
+  mapActionToPermissionBit,
 } from '@shn/scope-gatekeeper';
 import type { ExecutionRepository } from '@shn/data-access';
 import type { IEventPublisher } from '@shn/event-bus';
@@ -204,7 +204,7 @@ export class ExecutionSupervisor implements IExecutionSupervisor {
     }
 
     // 5. Action RBAC Permission Verification
-    const requiredBit = this.mapActionToPermissionBit(request.action);
+    const requiredBit = mapActionToPermissionBit(request.action);
     if (requiredBit !== undefined) {
       if ((context.permission_mask & requiredBit) !== requiredBit) {
         return err(
@@ -798,29 +798,6 @@ export class ExecutionSupervisor implements IExecutionSupervisor {
     }
 
     return ok(undefined);
-  }
-
-  private mapActionToPermissionBit(action: string): number | undefined {
-    const act = action.toLowerCase();
-    switch (act) {
-      case 'read':
-      case 'view_scope':
-        return PermissionBit.SCOPE_READ;
-      case 'recon_passive':
-      case 'passive':
-        return PermissionBit.RECON_PASSIVE;
-      case 'probing_active':
-      case 'probe':
-        return PermissionBit.PROBING_ACTIVE;
-      case 'scan_invasive':
-      case 'scan':
-        return PermissionBit.SCAN_INVASIVE;
-      case 'execute':
-      case 'workflow_execute':
-        return PermissionBit.WORKFLOW_EXECUTE;
-      default:
-        return undefined;
-    }
   }
 
   private async emitEvent(

@@ -177,7 +177,7 @@ export async function setupRegistryTestEnv(
       hostnames: [],
       urls: [],
     },
-    allowed_actions: ['network:scan', 'web:discover', 'recon:http', 'SCAN_TCP_PORT', 'HTTP_GET'],
+    allowed_actions: ['network:scan', 'web:discover', 'recon:http', 'SCAN_TCP_PORT', 'HTTP_GET', 'PROBING_ACTIVE'],
     disallowed_actions: [],
     port_ranges: [{ start: 1, end: 65535 }],
     rate_limits: {},

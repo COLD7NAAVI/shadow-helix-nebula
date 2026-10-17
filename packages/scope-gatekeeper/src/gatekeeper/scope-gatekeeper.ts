@@ -23,7 +23,6 @@ import type {
 } from '@shn/data-access';
 import type { IEventPublisher } from '@shn/event-bus';
 import type { ILogger, ITracer } from '@shn/telemetry';
-import { PermissionBit } from '@shn/auth-rbac';
 
 import type {
   IScopeGatekeeper,
@@ -60,6 +59,11 @@ import {
 } from '../evaluators/scope-composition.js';
 import { ScopeTokenSigner } from '../tokens/scope-token-signer.js';
 import { TenancyValidator } from '../tenancy/tenancy-validator.js';
+import {
+  mapActionToPermissionBit,
+  isActionAllowedByScope,
+  isActionDisallowedByScope,
+} from '../evaluators/action-mapper.js';
 
 export interface ScopeGatekeeperOptions {
   readonly scopeRepo?: ScopeRepository | undefined;
@@ -316,7 +320,7 @@ export class ScopeGatekeeper implements IScopeGatekeeper {
     }
 
     // 2. Action RBAC Permission validation
-    const permBit = this.mapActionToPermission(action);
+    const permBit = mapActionToPermissionBit(action);
     if (permBit !== undefined) {
       if ((context.permission_mask & permBit) !== permBit) {
         return ok({
@@ -489,7 +493,7 @@ export class ScopeGatekeeper implements IScopeGatekeeper {
     }
 
     // 5. Action check against scope definition
-    if (activeScope.allowedActions.length > 0 && !activeScope.allowedActions.includes(action)) {
+    if (activeScope.allowedActions.length > 0 && !isActionAllowedByScope(action, activeScope.allowedActions)) {
       return ok({
         allowed: false,
         reason: `Action '${action}' is not in scope allowedActions: [${activeScope.allowedActions.join(', ')}]`,
@@ -498,7 +502,7 @@ export class ScopeGatekeeper implements IScopeGatekeeper {
         evaluatedAt,
       });
     }
-    if (activeScope.disallowedActions && activeScope.disallowedActions.includes(action)) {
+    if (activeScope.disallowedActions && isActionDisallowedByScope(action, activeScope.disallowedActions)) {
       return ok({
         allowed: false,
         reason: `Action '${action}' is explicitly in scope disallowedActions`,
@@ -642,33 +646,6 @@ export class ScopeGatekeeper implements IScopeGatekeeper {
     }
 
     return undefined;
-  }
-
-  private mapActionToPermission(action: string): number | undefined {
-    const act = action.toLowerCase();
-    switch (act) {
-      case 'read':
-      case 'view_scope':
-        return PermissionBit.SCOPE_READ;
-      case 'admin':
-      case 'create_scope':
-      case 'update_scope':
-        return PermissionBit.SCOPE_ADMIN;
-      case 'execute':
-      case 'workflow_execute':
-        return PermissionBit.WORKFLOW_EXECUTE;
-      case 'recon_passive':
-      case 'passive':
-        return PermissionBit.RECON_PASSIVE;
-      case 'probing_active':
-      case 'probe':
-        return PermissionBit.PROBING_ACTIVE;
-      case 'scan_invasive':
-      case 'scan':
-        return PermissionBit.SCAN_INVASIVE;
-      default:
-        return undefined;
-    }
   }
 
   private mapRecordToScope(record: ScopeRecord): {

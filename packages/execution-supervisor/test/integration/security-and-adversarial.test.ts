@@ -100,6 +100,46 @@ describe('Execution Security & Adversarial Defenses (Integration)', () => {
     assert.equal(res.error.error_code, 'ERR_AUTH_FORBIDDEN');
   });
 
+  it('should reject http:probe execution when actor lacks PermissionBit.PROBING_ACTIVE', async () => {
+    // Token without PROBING_ACTIVE
+    const readOnlyToken = env.mintToken({
+      permission_mask: PermissionBit.SCOPE_READ,
+    });
+
+    const req = env.createRequest({
+      action: 'http:probe',
+      target: '192.168.1.50',
+      securityContext: readOnlyToken,
+    });
+
+    const res = await env.supervisor.execute(req);
+    assert.equal(res.isErr, true);
+    assert.equal(res.error.error_code, 'ERR_AUTH_FORBIDDEN');
+  });
+
+  it('should permit http:probe execution when actor has PermissionBit.PROBING_ACTIVE and target is in scope', async () => {
+    // Token with PROBING_ACTIVE
+    const probeToken = env.mintToken({
+      permission_mask: PermissionBit.PROBING_ACTIVE | PermissionBit.SCOPE_READ,
+    });
+
+    const req = env.createRequest({
+      action: 'http:probe',
+      target: '192.168.1.50',
+      securityContext: probeToken,
+      command: {
+        executable: process.execPath,
+        args: ['-e', 'process.stdout.write("PROBE SUCCESS")'],
+      },
+    });
+
+    const res = await env.supervisor.execute(req);
+    assert.equal(res.isOk, true);
+    const result = res.unwrapOr(null as any);
+    assert.equal(result.state, 'SUCCEEDED');
+    assert.ok(result.stdout.includes('PROBE SUCCESS'));
+  });
+
   it('should reject out-of-bounds target via ScopeGatekeeper and record REJECTED state', async () => {
     const req = env.createRequest({
       target: '10.50.50.50', // Out of bounds (scope only allows 192.168.1.0/24)

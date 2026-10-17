@@ -727,7 +727,7 @@ export async function seedInMemoryDevelopmentFixtures(
       { type: 'IPV4', value: '169.254.169.254', reason: 'Cloud Metadata Protection (SEC-INV-08)' },
       { type: 'CIDR', value: '127.0.0.0/8', reason: 'Loopback Protection' },
     ],
-    allowed_actions: ['RECON_PASSIVE', 'PROBING_ACTIVE', 'PORT_SCAN', 'network:scan'],
+    allowed_actions: ['RECON_PASSIVE', 'PROBING_ACTIVE', 'PORT_SCAN', 'network:scan', 'http:probe'],
     disallowed_actions: ['EXPLOIT', 'DENIAL_OF_SERVICE'],
     port_ranges: [
       { start: 80, end: 443 },
@@ -781,7 +781,7 @@ export async function seedPostgresDevelopmentFixtures(
         { type: 'IPV4', value: '169.254.169.254', reason: 'Cloud Metadata Protection (SEC-INV-08)' },
         { type: 'CIDR', value: '127.0.0.0/8', reason: 'Loopback Protection' },
       ],
-      allowed_actions: ['RECON_PASSIVE', 'PROBING_ACTIVE', 'PORT_SCAN', 'network:scan'],
+      allowed_actions: ['RECON_PASSIVE', 'PROBING_ACTIVE', 'PORT_SCAN', 'network:scan', 'http:probe'],
       disallowed_actions: ['EXPLOIT', 'DENIAL_OF_SERVICE'],
       port_ranges: [
         { start: 80, end: 443 },

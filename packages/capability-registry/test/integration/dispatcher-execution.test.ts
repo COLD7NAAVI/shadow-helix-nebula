@@ -15,6 +15,7 @@ import {
 } from '../../dist/index.js';
 import { ok, type Result, createAdapterId, type AdapterId } from '@shn/shared-kernel';
 import { ErrorCode, type ProblemDetails } from '@shn/error-catalog';
+import { PermissionBit } from '@shn/auth-rbac';
 
 class TestExecutableAdapter extends BaseToolAdapter {
   readonly adapterId: AdapterId;
@@ -32,6 +33,12 @@ class TestExecutableAdapter extends BaseToolAdapter {
         capabilityId: 'shn://capabilities/network/port-scan' as any,
         versionConstraint: '^1.0.0',
         supportedTargetTypes: ['IP', 'CIDR'],
+        priority: 500,
+      },
+      {
+        capabilityId: 'shn://capabilities/web/http-discovery' as any,
+        versionConstraint: '^1.0.0',
+        supportedTargetTypes: ['IP', 'CIDR', 'URL', 'HOST'],
         priority: 500,
       },
     ];
@@ -120,9 +127,28 @@ describe('CapabilityDispatcher End-to-End Execution (Integration)', () => {
     integrityDigest: '1'.repeat(64),
   };
 
+  const sampleHttpCap: CapabilityDefinition = {
+    id: 'shn://capabilities/web/http-discovery' as any,
+    name: 'web.http-discovery',
+    version: '1.0.0',
+    displayName: 'HTTP Discovery',
+    description: 'Probes HTTP services',
+    category: 'RECONNAISSANCE',
+    riskLevel: 'LOW',
+    supportedTargets: ['IP', 'CIDR', 'URL', 'HOST'],
+    requiredPermissions: PermissionBit.PROBING_ACTIVE,
+    requiredScopeAction: 'http:probe',
+    argumentSchema: { type: 'object' },
+    outputSchema: { type: 'object' },
+    platformCompatibility: ['linux', 'darwin', 'win32'],
+    lifecycleState: 'ACTIVE',
+    integrityDigest: '2'.repeat(64),
+  };
+
   before(async () => {
     env = await setupRegistryTestEnv('shn_test_capability_dispatcher');
     await env.registry.registerCapability(sampleCap);
+    await env.registry.registerCapability(sampleHttpCap);
     await env.registry.registerAdapter(new TestExecutableAdapter());
   });
 
@@ -228,4 +254,55 @@ describe('CapabilityDispatcher End-to-End Execution (Integration)', () => {
       assert.strictEqual(result.error.error_code, ErrorCode.AUTH_FORBIDDEN);
     }
   });
+
+  it('should successfully dispatch http:probe capability when target is in scope and actor is authorized', async () => {
+    const secToken = env.mintToken(env.workspaceId, {
+      permission_mask: PermissionBit.PROBING_ACTIVE | PermissionBit.SCOPE_READ,
+    });
+
+    const result = await env.dispatcher.executeCapability({
+      capabilityId: sampleHttpCap.id,
+      target: '192.168.1.1',
+      port: 80,
+      workspaceId: env.workspaceId,
+      organizationId: env.orgId,
+      actorId: env.userId,
+      securityContext: secToken,
+      scopeId: env.scopeId,
+    });
+
+    assert.strictEqual(result.isOk, true);
+    const execRes = result.unwrapOr(null as any);
+    assert.strictEqual(execRes.capabilityId, sampleHttpCap.id);
+    assert.strictEqual(execRes.state, 'SUCCEEDED');
+    assert.strictEqual(execRes.exitCode, 0);
+
+    const dbRecord = await env.executionRepo.findById(execRes.executionId, env.workspaceId);
+    assert.ok(dbRecord);
+    assert.strictEqual(dbRecord.state, 'SUCCEEDED');
+    assert.strictEqual(dbRecord.action, 'http:probe');
+  });
+
+  it('should reject http:probe capability when actor lacks PROBING_ACTIVE permission', async () => {
+    const readOnlyToken = env.mintToken(env.workspaceId, {
+      permission_mask: PermissionBit.SCOPE_READ,
+    });
+
+    const result = await env.dispatcher.executeCapability({
+      capabilityId: sampleHttpCap.id,
+      target: '192.168.1.1',
+      port: 80,
+      workspaceId: env.workspaceId,
+      organizationId: env.orgId,
+      actorId: env.userId,
+      securityContext: readOnlyToken,
+      scopeId: env.scopeId,
+    });
+
+    assert.strictEqual(result.isErr, true);
+    if (result.isErr) {
+      assert.strictEqual(result.error.error_code, ErrorCode.AUTH_FORBIDDEN);
+    }
+  });
 });
+

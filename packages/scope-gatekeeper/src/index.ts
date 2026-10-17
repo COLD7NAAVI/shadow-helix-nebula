@@ -81,5 +81,17 @@ export {
   intersectScopes,
 } from './evaluators/scope-composition.js';
 
+// Canonical Action Mapping
+export {
+  CanonicalScopeAction,
+  type CanonicalScopeActionType,
+  normalizeAction,
+  actionsMatch,
+  isActionAllowedByScope,
+  isActionDisallowedByScope,
+  mapActionToPermissionBit,
+} from './evaluators/action-mapper.js';
+
 // Errors
 export { makeScopeProblem } from './errors.js';
+
