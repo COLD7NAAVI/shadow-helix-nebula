@@ -7,6 +7,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import {
   generateUUIDv7,
@@ -56,6 +57,75 @@ import { createIngressApplication } from './app.js';
 import type { IngressServer } from './server.js';
 
 const __filename = fileURLToPath(import.meta.url);
+
+export interface OperatorCredentialsResult {
+  readonly password: string;
+  readonly isGenerated: boolean;
+  readonly credentialsFile?: string | undefined;
+  readonly notice: string;
+}
+
+export function resolveOperatorCredentials(
+  nodeEnv = process.env.NODE_ENV || 'development',
+  explicitPassword = process.env.SHN_INITIAL_ADMIN_PASSWORD
+): OperatorCredentialsResult {
+  if (explicitPassword && explicitPassword.trim().length > 0) {
+    if (explicitPassword.length < 8) {
+      throw new Error('SHN_INITIAL_ADMIN_PASSWORD must be at least 8 characters in length.');
+    }
+    return {
+      password: explicitPassword.trim(),
+      isGenerated: false,
+      notice: 'Configured via SHN_INITIAL_ADMIN_PASSWORD environment variable',
+    };
+  }
+
+  if (nodeEnv === 'production') {
+    const credPath = path.resolve(process.cwd(), '.shn-initial-credentials');
+    if (fs.existsSync(credPath)) {
+      try {
+        const content = fs.readFileSync(credPath, 'utf8');
+        const match = content.match(/OPERATOR_PASSWORD=(.+)/);
+        if (match && match[1]) {
+          return {
+            password: match[1].trim(),
+            isGenerated: false,
+            credentialsFile: credPath,
+            notice: `Loaded existing master secret from secure file: ${credPath}`,
+          };
+        }
+      } catch {
+        // Fall through to regeneration
+      }
+    }
+
+    const generated = crypto.randomBytes(18).toString('base64url');
+    try {
+      fs.writeFileSync(
+        credPath,
+        `# Shadow : Helix Nebula — Sovereign Operator Initial Credentials\n# Provisioned: ${new Date().toISOString()}\nOPERATOR_EMAIL=operator@shn.sovereign\nOPERATOR_PASSWORD=${generated}\n`,
+        { mode: 0o600 }
+      );
+      return {
+        password: generated,
+        isGenerated: true,
+        credentialsFile: credPath,
+        notice: `Generated secure initial credentials in restricted file (0600): ${credPath}`,
+      };
+    } catch {
+      throw new Error(
+        'In production mode (NODE_ENV=production), either SHN_INITIAL_ADMIN_PASSWORD must be provided or filesystem permissions must permit creating .shn-initial-credentials.'
+      );
+    }
+  }
+
+  // Development and test mode default for automated testing compatibility
+  return {
+    password: 'Password123!',
+    isGenerated: false,
+    notice: 'Development fallback active (Baseline credentials provisioned)',
+  };
+}
 
 interface InMemoryStore {
   orgs: Map<string, any>;
@@ -993,6 +1063,8 @@ export async function startStandaloneServer(customPort?: number): Promise<{
   isPostgres: boolean;
   eventStreamHub: EventStreamHub;
 }> {
+  const creds = resolveOperatorCredentials();
+
   if (process.env.NODE_ENV === 'production') {
     if (!process.env.SHN_SIGNER_SECRET || process.env.SHN_SIGNER_SECRET === 'shn-sovereign-signer-secret-key-32b!') {
       throw new Error('Production Security Invariant Violation: SHN_SIGNER_SECRET must be configured with a secure key.');
@@ -1000,8 +1072,8 @@ export async function startStandaloneServer(customPort?: number): Promise<{
     if (!process.env.SHN_SCOPE_SIGNER_SECRET || process.env.SHN_SCOPE_SIGNER_SECRET === 'shn-sovereign-scope-secret-key-32b!!') {
       throw new Error('Production Security Invariant Violation: SHN_SCOPE_SIGNER_SECRET must be configured with a secure key.');
     }
-    if (!process.env.SHN_INITIAL_ADMIN_PASSWORD || process.env.SHN_INITIAL_ADMIN_PASSWORD === 'Password123!') {
-      throw new Error('Production Security Invariant Violation: SHN_INITIAL_ADMIN_PASSWORD must be configured with a strong non-default password.');
+    if (process.env.SHN_INITIAL_ADMIN_PASSWORD === 'Password123!') {
+      throw new Error('Production Security Invariant Violation: SHN_INITIAL_ADMIN_PASSWORD cannot be set to default "Password123!" in production.');
     }
   }
 
@@ -1076,11 +1148,11 @@ export async function startStandaloneServer(customPort?: number): Promise<{
       scopeRepo: new ScopeRepository(pool),
       auditRepo: new AuditEventRepository(pool),
     };
-    await seedPostgresDemonstrationData(repos);
+    await seedPostgresDemonstrationData(repos, creds.password);
   } else {
     pool = createInMemoryDatabasePool();
     repos = createInMemoryRepositories(inMemoryStore);
-    await seedDemonstrationData(inMemoryStore, repos);
+    await seedDemonstrationData(inMemoryStore, repos, creds.password);
   }
 
   const assetService = new AssetInventoryService({ assetRepository: repos.assetRepo });
@@ -1224,6 +1296,7 @@ SHADOW : HELIX NEBULA (SHN) — SOVEREIGN CYBERSECURITY PLATFORM
 [+] Prometheus Metrics:      ${url}/metrics
 [+] Persistence Engine:      ${isPostgres ? 'PostgreSQL (Active)' : 'Sovereign In-Memory Engine (Active)'}
 [+] Sovereign Operator:      operator@shn.sovereign
+[+] Credential Provisioning: ${creds.notice}
 [+] Security Status:         Active (Zero-Trust Identity & Tenancy Hardened)
 ========================================================================
 `);

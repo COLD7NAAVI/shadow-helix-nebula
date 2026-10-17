@@ -32,3 +32,6 @@ scratch/
 .env
 .env.*
 !.env.example
+!.env.production.example
+!.env*.example
+.shn-initial-credentials

@@ -148,11 +148,14 @@ export class ScopeController {
 
       res.status(201).json(record);
     } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const isConflict = errMsg.includes('duplicate key') || errMsg.includes('unique constraint');
       const problem = createProblemDetails({
-        errorCode: ErrorCode.STORAGE_TRANSACTION_FAILED,
-        detail: `Failed to create scope boundary: ${err instanceof Error ? err.message : String(err)}`,
+        errorCode: isConflict ? ErrorCode.STORAGE_CONCURRENCY_CONFLICT : ErrorCode.STORAGE_TRANSACTION_FAILED,
+        detail: isConflict ? 'A scope with this name already exists in the workspace.' : `Failed to create scope boundary: ${errMsg}`,
         instance: req.path,
         correlationId: req.correlationId,
+        customStatus: isConflict ? 409 : 500,
       });
       sendProblemDetails(res, problem);
     }

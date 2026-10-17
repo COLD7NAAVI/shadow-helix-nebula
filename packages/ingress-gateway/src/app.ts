@@ -178,5 +178,6 @@ export function createIngressApplication(deps: AppDependencies): IngressServer {
     config: deps.config,
     router,
     pool: deps.pool,
+    eventStreamHub,
   });
 }

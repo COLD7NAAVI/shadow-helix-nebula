@@ -60,9 +60,9 @@ export function renderLoginView(
               </button>
 
               <div style="margin-top:16px;padding:12px;border-radius:var(--radius-md);background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);font-size:11px;color:var(--text-muted);line-height:1.6;">
-                <strong style="color:var(--text-secondary);">Baseline Credentials:</strong><br />
-                Email: <code style="color:var(--accent-primary);">operator@shn.sovereign</code><br />
-                Password: <code style="color:var(--accent-primary);">Password123!</code>
+                <strong style="color:var(--text-secondary);">Sovereign Operator Access:</strong><br />
+                Default Email: <code style="color:var(--accent-primary);">operator@shn.sovereign</code><br />
+                <span style="font-size:10px;color:var(--text-muted);">Use the credentials provisioned during setup or specified via <code style="color:var(--text-secondary);">SHN_INITIAL_ADMIN_PASSWORD</code>.</span>
               </div>
             ` : `
               <div class="form-group" style="margin:0;">

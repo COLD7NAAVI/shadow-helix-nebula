@@ -20,6 +20,7 @@
     "web:bundle": "npm --workspace=@shn/web-console run bundle",
     "test:e2e": "npm run web:bundle && node scripts/verify-integration.mjs",
     "start": "npm run build && node packages/ingress-gateway/dist/standalone.js",
+    "db:migrate": "node scripts/migrate.js",
     "db:test:start": "powershell -ExecutionPolicy Bypass -File scripts/start-test-db.ps1",
     "db:test:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-test-db.ps1"
   },

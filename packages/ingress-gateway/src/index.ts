@@ -28,3 +28,5 @@ export * from './controllers/event-stream.controller.js';
 export * from './openapi/openapi-spec.js';
 export * from './sse/event-stream-hub.js';
 export * from './cli/cli-runner.js';
+export { resolveOperatorCredentials, type OperatorCredentialsResult } from './standalone.js';
+

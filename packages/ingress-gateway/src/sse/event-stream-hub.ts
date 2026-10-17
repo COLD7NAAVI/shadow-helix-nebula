@@ -28,19 +28,55 @@ export interface StreamClient {
   isAlive: boolean;
 }
 
+export interface EventStreamHubOptions {
+  readonly heartbeatIntervalMs?: number;
+  readonly maxConnectionsPerWorkspace?: number;
+  readonly maxTotalConnections?: number;
+}
+
 export class EventStreamHub {
   private readonly clientsByWorkspace = new Map<string, Set<StreamClient>>();
   private totalEventsPublished = 0;
   private readonly heartbeatIntervalMs: number;
+  private readonly maxConnectionsPerWorkspace: number;
+  private readonly maxTotalConnections: number;
+  private isDestroyed = false;
 
-  constructor(heartbeatIntervalMs = 15000) {
-    this.heartbeatIntervalMs = heartbeatIntervalMs;
+  constructor(optionsOrInterval: number | EventStreamHubOptions = 15000) {
+    if (typeof optionsOrInterval === 'number') {
+      this.heartbeatIntervalMs = optionsOrInterval;
+      this.maxConnectionsPerWorkspace = 50;
+      this.maxTotalConnections = 500;
+    } else {
+      this.heartbeatIntervalMs = optionsOrInterval.heartbeatIntervalMs ?? 15000;
+      this.maxConnectionsPerWorkspace = optionsOrInterval.maxConnectionsPerWorkspace ?? 50;
+      this.maxTotalConnections = optionsOrInterval.maxTotalConnections ?? 500;
+    }
+  }
+
+  /**
+   * Evaluates whether the hub is at connection capacity.
+   */
+  isAtCapacity(workspaceId?: string): boolean {
+    if (this.isDestroyed) return true;
+    if (this.subscriberCount() >= this.maxTotalConnections) return true;
+    if (workspaceId && this.subscriberCount(workspaceId) >= this.maxConnectionsPerWorkspace) return true;
+    return false;
   }
 
   /**
    * Registers a newly connected client for a specific workspace.
    */
   register(req: IngressRequest, res: IngressResponse, workspaceId: string, userId?: string): StreamClient {
+    if (this.isAtCapacity(workspaceId)) {
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.status(429);
+      res.raw.write(`event: error\ndata: ${JSON.stringify({ error: 'LIMIT_EXCEEDED', detail: 'Maximum concurrent SSE stream limit reached.' })}\n\n`);
+      res.raw.end();
+      throw new Error(`Maximum concurrent SSE stream limit reached for workspace ${workspaceId}`);
+    }
+
     const clientId = generateUUIDv7();
 
     // Prepare HTTP response headers for SSE
@@ -194,6 +230,7 @@ export class EventStreamHub {
    * Shuts down all active streams.
    */
   destroy(): void {
+    this.isDestroyed = true;
     for (const set of this.clientsByWorkspace.values()) {
       for (const client of set) {
         this.unregister(client);

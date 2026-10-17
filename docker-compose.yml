@@ -1,0 +1,76 @@
+# ============================================================================
+# Shadow : Helix Nebula (SHN) — Production Compose Infrastructure
+#
+# Authoritative Spec: Phase 0.3 Perimeter A/B, Phase 0.11 Trust Boundaries
+# Orchestrates PostgreSQL 17 persistence and sovereign Ingress/Web Console.
+# ============================================================================
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: shn-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${SHN_DB_NAME:-shn_primary}
+      POSTGRES_USER: ${SHN_DB_USER:-shn_app}
+      POSTGRES_PASSWORD: ${SHN_DB_PASSWORD:-shn_production_secure_db_password}
+    ports:
+      - "${SHN_DB_PORT:-5432}:5432"
+    volumes:
+      - shn_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SHN_DB_USER:-shn_app} -d ${SHN_DB_NAME:-shn_primary}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  shn-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shn-platform
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${SHN_PORT:-8080}:8080"
+    environment:
+      NODE_ENV: production
+      SHN_PORT: 8080
+      SHN_HOST: 0.0.0.0
+      SHN_DB_HOST: postgres
+      SHN_DB_PORT: 5432
+      SHN_DB_NAME: ${SHN_DB_NAME:-shn_primary}
+      SHN_DB_USER: ${SHN_DB_USER:-shn_app}
+      SHN_DB_PASSWORD: ${SHN_DB_PASSWORD:-shn_production_secure_db_password}
+      SHN_SIGNER_SECRET: ${SHN_SIGNER_SECRET:-shn-production-signer-secret-key-32b!}
+      SHN_SCOPE_SIGNER_SECRET: ${SHN_SCOPE_SIGNER_SECRET:-shn-production-scope-secret-key-32b!}
+      SHN_INITIAL_ADMIN_PASSWORD: ${SHN_INITIAL_ADMIN_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+volumes:
+  shn_postgres_data:
+    name: shn_postgres_data

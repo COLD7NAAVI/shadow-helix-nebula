@@ -84,24 +84,28 @@ async function run() {
     assert.equal(scopesRes.status, 200, 'Scopes list must return 200');
     const scopes = await scopesRes.json();
     assert.ok(Array.isArray(scopes) && scopes.length > 0, 'Must have at least 1 scope');
-    const scopeId = scopes[0].id;
+    const perimeterScope = scopes.find(s => s.name.includes('Perimeter Defense Zone') || JSON.stringify(s.inclusions).includes('10.240.0.0/24')) || scopes[0];
+    const scopeId = perimeterScope.id;
     console.log(`       ✓ Scopes OK (${scopes.length} scopes found, scopeId: ${scopeId})`);
 
     // 8. Scope Creation
-    console.log(`[8/14] Testing POST /api/v1/workspaces/${workspaceId}/scopes ...`);
+    const scopeName = `Automated Test Sandbox Scope ${Date.now()}`;
     const newScopeRes = await fetch(`${url}/api/v1/workspaces/${workspaceId}/scopes`, {
       method: 'POST',
       headers: authHeaders,
       body: JSON.stringify({
-        name: 'Automated Test Sandbox Scope',
+        name: scopeName,
         description: 'Temporary boundary created during Step 2 verification',
         inclusions: [{ type: 'IPV4', value: '192.168.100.1' }],
         allowedActions: ['PORT_SCAN', 'network:scan'],
       }),
     });
+    if (newScopeRes.status !== 201) {
+      console.error('[-] Scope creation failed with status', newScopeRes.status, 'body:', await newScopeRes.text());
+    }
     assert.equal(newScopeRes.status, 201, 'Scope creation must return 201');
     const newScope = await newScopeRes.json();
-    assert.equal(newScope.name, 'Automated Test Sandbox Scope');
+    assert.equal(newScope.name, scopeName);
     console.log('       ✓ Scope Created successfully:', newScope.id);
 
     // 9. Assets List & Creation
@@ -112,12 +116,13 @@ async function run() {
     assert.ok(Array.isArray(assets) && assets.length > 0, 'Must have seeded assets');
     console.log(`       ✓ Assets OK (${assets.length} assets found)`);
 
+    const testProbeIp = `10.240.0.${Math.floor(Math.random() * 140) + 110}`;
     const newAssetRes = await fetch(`${url}/api/v1/workspaces/${workspaceId}/assets`, {
       method: 'POST',
       headers: authHeaders,
       body: JSON.stringify({
         type: 'IPV4',
-        rawTarget: '10.240.0.99',
+        rawTarget: testProbeIp,
         name: 'Verification Probe Node',
         criticality: 'HIGH',
         tags: ['verification', 'test'],

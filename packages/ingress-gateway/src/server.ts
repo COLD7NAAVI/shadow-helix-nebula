@@ -20,16 +20,20 @@ import { createCorrelationMiddleware } from './middleware/correlation.js';
 import { createRateLimiterMiddleware } from './middleware/rate-limiter.js';
 import { sendProblemDetails, handleUnhandledError } from './errors/problem-details-filter.js';
 
+import type { EventStreamHub } from './sse/event-stream-hub.js';
+
 export interface IngressServerDependencies {
   config?: Partial<GatewayConfig> | undefined;
   router?: Router | undefined;
   pool?: any | undefined;
+  eventStreamHub?: EventStreamHub | undefined;
 }
 
 export class IngressServer {
   private readonly config: GatewayConfig;
   private readonly router: Router;
   private readonly pool: any | null = null;
+  private readonly eventStreamHub: EventStreamHub | null = null;
   private server: Server | null = null;
 
   constructor(deps?: IngressServerDependencies) {
@@ -45,6 +49,7 @@ export class IngressServer {
 
     this.router = deps?.router ?? new Router();
     this.pool = deps?.pool ?? null;
+    this.eventStreamHub = deps?.eventStreamHub ?? null;
 
     // Attach standard edge middlewares
     this.router.use(createCorrelationMiddleware());
@@ -76,6 +81,13 @@ export class IngressServer {
   }
 
   async stop(): Promise<void> {
+    if (this.eventStreamHub) {
+      try {
+        this.eventStreamHub.destroy();
+      } catch {
+        // SSE cleanup error ignored on shutdown
+      }
+    }
     if (this.pool && typeof this.pool.end === 'function') {
       try {
         await this.pool.end();
@@ -102,6 +114,17 @@ export class IngressServer {
     const rawUrl = rawReq.url || '/';
     const parsedUrl = new URL(rawUrl, `http://${rawReq.headers.host || 'localhost'}`);
     const pathname = parsedUrl.pathname;
+
+    // Handle CORS preflight requests immediately fail-safe
+    if (rawReq.method === 'OPTIONS') {
+      rawRes.setHeader('Access-Control-Allow-Origin', this.config.corsAllowedOrigins.join(', '));
+      rawRes.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      rawRes.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Correlation-ID, X-Request-ID, X-Trace-ID');
+      rawRes.setHeader('Access-Control-Max-Age', '86400');
+      rawRes.statusCode = 204;
+      rawRes.end();
+      return;
+    }
 
     const query: Record<string, string> = {};
     for (const [k, v] of parsedUrl.searchParams.entries()) {
@@ -151,10 +174,17 @@ export class IngressServer {
       },
     };
 
-    // Apply default security & CORS headers
+    // Apply hardened production security & CORS headers
     rawRes.setHeader('Access-Control-Allow-Origin', this.config.corsAllowedOrigins.join(', '));
+    rawRes.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    rawRes.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Correlation-ID, X-Request-ID, X-Trace-ID');
     rawRes.setHeader('X-Content-Type-Options', 'nosniff');
     rawRes.setHeader('X-Frame-Options', 'DENY');
+    rawRes.setHeader('X-XSS-Protection', '1; mode=block');
+    rawRes.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    rawRes.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    rawRes.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    rawRes.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss:; img-src 'self' data:; object-src 'none'; frame-ancestors 'none';");
 
     // Read and buffer body with size limits
     let rawBody = '';

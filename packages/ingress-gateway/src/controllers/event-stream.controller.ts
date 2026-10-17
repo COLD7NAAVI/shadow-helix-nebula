@@ -36,6 +36,19 @@ export class EventStreamController {
       return;
     }
 
+    // Check connection capacity limits (resource exhaustion defense)
+    if (this.hub.isAtCapacity(workspaceId)) {
+      const problem = createProblemDetails({
+        errorCode: ErrorCode.RATE_LIMIT_EXCEEDED,
+        detail: `Maximum concurrent real-time stream limit reached for workspace "${workspaceId}".`,
+        instance: req.path,
+        correlationId: req.correlationId,
+        customStatus: 429,
+      });
+      sendProblemDetails(res, problem);
+      return;
+    }
+
     // Tenancy is already validated by tenancyMiddleware, so the actor is authorized.
     const actorId = req.actor?.id;
 

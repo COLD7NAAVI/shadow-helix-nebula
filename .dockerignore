@@ -1,0 +1,24 @@
+# Version Control
+.git
+.gitignore
+.editorconfig
+
+# Local Environment & Secrets
+.env
+.env.local
+.env.*.local
+.shn-initial-credentials
+
+# Temporary & Cache Files
+tmp/
+*.log
+.npm
+npm-debug.log*
+
+# Test Databases & Scratch
+tmp/test-db/
+coverage/
+
+# OS Specific
+.DS_Store
+Thumbs.db
