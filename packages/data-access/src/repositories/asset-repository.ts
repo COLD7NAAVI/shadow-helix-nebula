@@ -244,4 +244,16 @@ export class AssetRepository {
     const result = await executor.query(query, [workspaceId]);
     return Number(result.rows[0]?.count ?? 0);
   }
+
+  async listByWorkspace(
+    workspaceId: WorkspaceId,
+    options: ListAssetOptions = {},
+    client?: DatabaseClient
+  ): Promise<AssetRecord[]> {
+    return this.listAssets(workspaceId, options, client);
+  }
+
+  async create(params: CreateAssetParams, client?: DatabaseClient): Promise<AssetRecord> {
+    return this.createAsset(params, client);
+  }
 }

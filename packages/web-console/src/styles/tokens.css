@@ -77,21 +77,22 @@
    THEME 1: NIGHT (Deep-Space Dark Cybersecurity Workstation) - DEFAULT
    ========================================================================= */
 :root,
-[data-theme='night'] {
-  --bg-app: #030408;
-  --bg-surface: #0a0d18;
-  --bg-surface-elevated: #111728;
-  --bg-surface-glass: rgba(11, 15, 29, 0.75);
-  --bg-surface-glass-heavy: rgba(8, 12, 24, 0.88);
-  --bg-card: rgba(17, 24, 42, 0.7);
-  --bg-card-hover: rgba(24, 34, 60, 0.8);
-  --bg-input: rgba(6, 9, 18, 0.8);
-  --bg-terminal: #05070f;
+[data-theme='night'],
+[data-theme='cyber-operations'] {
+  --bg-app: #050814;
+  --bg-surface: #0a0f28;
+  --bg-surface-elevated: #10183b;
+  --bg-surface-glass: rgba(10, 15, 40, 0.80);
+  --bg-surface-glass-heavy: rgba(7, 11, 28, 0.94);
+  --bg-card: rgba(15, 22, 54, 0.75);
+  --bg-card-hover: rgba(22, 33, 80, 0.88);
+  --bg-input: rgba(6, 9, 24, 0.85);
+  --bg-terminal: #04060f;
 
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-medium: rgba(255, 255, 255, 0.14);
-  --border-glass: rgba(255, 255, 255, 0.1);
-  --border-glow: rgba(139, 92, 246, 0.3);
+  --border-subtle: rgba(0, 240, 255, 0.12);
+  --border-medium: rgba(0, 240, 255, 0.22);
+  --border-glass: rgba(255, 255, 255, 0.12);
+  --border-glow: rgba(0, 240, 255, 0.35);
 
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
@@ -99,15 +100,16 @@
   --text-inverse: #020617;
 
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.1);
-  --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.65), 0 0 1px rgba(255, 255, 255, 0.15);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 240, 255, 0.2);
+  --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.65), 0 0 2px rgba(0, 240, 255, 0.3);
   --shadow-glow: 0 0 25px var(--accent-glow);
 }
 
 /* =========================================================================
-   THEME 2: DAY (Crisp, High-Contrast Professional Workstation)
+   THEME 2: DAY / LIGHT (Crisp, High-Contrast Professional Workstation)
    ========================================================================= */
-[data-theme='day'] {
+[data-theme='day'],
+[data-theme='light'] {
   --bg-app: #f1f5f9;
   --bg-surface: #ffffff;
   --bg-surface-elevated: #f8fafc;
@@ -167,6 +169,22 @@
 /* =========================================================================
    ACCENT PALETTES PERSONALIZATION
    ========================================================================= */
+[data-accent='cyan'] {
+  --accent-primary: #00f0ff;
+  --accent-primary-hover: #38f8ff;
+  --accent-glow: rgba(0, 240, 255, 0.45);
+  --accent-subtle: rgba(0, 240, 255, 0.15);
+  --accent-border: rgba(0, 240, 255, 0.35);
+}
+
+[data-accent='rose'] {
+  --accent-primary: #f43f5e;
+  --accent-primary-hover: #fb7185;
+  --accent-glow: rgba(244, 63, 94, 0.45);
+  --accent-subtle: rgba(244, 63, 94, 0.15);
+  --accent-border: rgba(244, 63, 94, 0.35);
+}
+
 [data-accent='violet'] {
   --accent-primary: #8b5cf6;
   --accent-primary-hover: #a78bfa;

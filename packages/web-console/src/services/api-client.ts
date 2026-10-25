@@ -18,6 +18,12 @@ import type {
   Scope,
   AuditEvent,
   HealthStatus,
+  AiProvider,
+  AiRecommendation,
+  Report,
+  GraphData,
+  GeoIntelData,
+  UserPreferences,
 } from '../contracts.js';
 
 export interface ApiClientConfig {
@@ -294,6 +300,25 @@ export class ApiClient {
     });
   }
 
+  async dispatchExecution(
+    workspaceId: string,
+    input: {
+      capabilityUri: string;
+      target: string;
+      port?: number | undefined;
+      parameters?: Record<string, unknown> | undefined;
+      scopeId?: string | undefined;
+    }
+  ): Promise<Execution> {
+    return this.executeCapability(workspaceId, {
+      capabilityId: input.capabilityUri,
+      target: input.target,
+      port: input.port,
+      parameters: input.parameters,
+      scopeId: input.scopeId,
+    });
+  }
+
   // Scopes
   async listScopes(workspaceId: string): Promise<Scope[]> {
     return this.request<Scope[]>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/scopes`);
@@ -383,5 +408,136 @@ export class ApiClient {
     return () => {
       es.close();
     };
+  }
+
+  // AI Providers & Connection Probing
+  async listAiProviders(): Promise<AiProvider[]> {
+    return this.request<AiProvider[]>('/api/v1/ai/providers');
+  }
+
+  async createAiProvider(input: Record<string, unknown>): Promise<AiProvider> {
+    return this.request<AiProvider>('/api/v1/ai/providers', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  }
+
+  async testAiConnection(input: Record<string, unknown>): Promise<{ success: boolean; latencyMs?: number; message?: string; modelsAvailable?: string[] }> {
+    return this.request<{ success: boolean; latencyMs?: number; message?: string; modelsAvailable?: string[] }>('/api/v1/ai/test-connection', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  }
+
+  // Evidence-Driven AI Security Assistant & Recommendations
+  async listAiRecommendations(workspaceId: string, status?: string): Promise<AiRecommendation[]> {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+    return this.request<AiRecommendation[]>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/ai/recommendations${qs}`);
+  }
+
+  async generateAiRecommendations(workspaceId: string): Promise<AiRecommendation[]> {
+    return this.request<AiRecommendation[]>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/ai/recommendations/generate`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
+  async approveAiRecommendation(workspaceId: string, id: string): Promise<{ success: boolean; recommendation: AiRecommendation; executionId?: string }> {
+    return this.request<{ success: boolean; recommendation: AiRecommendation; executionId?: string }>(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/ai/recommendations/${encodeURIComponent(id)}/approve`,
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }
+    );
+  }
+
+  async dismissAiRecommendation(workspaceId: string, id: string): Promise<{ success: boolean; recommendation: AiRecommendation }> {
+    return this.request<{ success: boolean; recommendation: AiRecommendation }>(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/ai/recommendations/${encodeURIComponent(id)}/dismiss`,
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }
+    );
+  }
+
+  async chatAi(workspaceId: string, prompt: string, providerId?: string): Promise<{ reply: string; proposedActions?: any[] }> {
+    return this.request<{ reply: string; proposedActions?: any[] }>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/ai/chat`, {
+      method: 'POST',
+      body: JSON.stringify({ prompt, providerId }),
+    });
+  }
+
+  // Professional Reports
+  async listReports(workspaceId: string): Promise<Report[]> {
+    return this.request<Report[]>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/reports`);
+  }
+
+  async getReport(workspaceId: string, reportId: string): Promise<Report> {
+    return this.request<Report>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/reports/${encodeURIComponent(reportId)}`);
+  }
+
+  async generateReport(workspaceId: string, input: { title: string; reportType?: string; scopeId?: string }): Promise<Report> {
+    return this.request<Report>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/reports`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  }
+
+  async getReportHtml(workspaceId: string, reportId: string): Promise<string> {
+    const url = `${this.baseUrl}/api/v1/workspaces/${encodeURIComponent(workspaceId)}/reports/${encodeURIComponent(reportId)}/html`;
+    const token = this.getToken();
+    const headers = new Headers();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    headers.set('X-Correlation-ID', this.generateCorrelationId());
+    const resp = await fetch(url, { headers });
+    if (!resp.ok) {
+      throw new Error(`Failed to load report HTML: ${resp.status}`);
+    }
+    return resp.text();
+  }
+
+  // User Preferences & Saved Layouts
+  async getUserPreferences(): Promise<UserPreferences> {
+    return this.request<UserPreferences>('/api/v1/users/me/preferences');
+  }
+
+  async saveUserPreferences(prefs: Partial<UserPreferences>): Promise<UserPreferences> {
+    return this.request<UserPreferences>('/api/v1/users/me/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(prefs),
+    });
+  }
+
+  // Interactive Graph
+  async getGraph(workspaceId: string): Promise<GraphData> {
+    return this.request<GraphData>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/graph`);
+  }
+
+  async saveGraph(
+    workspaceId: string,
+    layout: { name?: string; positions: Record<string, { x: number; y: number }>; annotations?: any[]; filters?: any }
+  ): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/graph`, {
+      method: 'PUT',
+      body: JSON.stringify(layout),
+    });
+  }
+
+  // Threat Intelligence & Geographic Intelligence
+  async getGeoIntel(workspaceId?: string): Promise<GeoIntelData> {
+    const endpoint = workspaceId
+      ? `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/threat-intel/geo`
+      : '/api/v1/threat-intel/geo';
+    return this.request<GeoIntelData>(endpoint);
+  }
+
+  async getThreatFeed(): Promise<{ feed: any[]; provider: string }> {
+    return this.request<{ feed: any[]; provider: string }>('/api/v1/threat-intel/feed');
+  }
+
+  async getCve(cveId: string): Promise<any> {
+    return this.request<any>(`/api/v1/threat-intel/cve/${encodeURIComponent(cveId)}`);
   }
 }

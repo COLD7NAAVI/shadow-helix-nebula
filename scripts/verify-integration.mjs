@@ -105,6 +105,7 @@ async function run() {
     console.log(`       ✓ Scopes Query OK (${initialScopes.length} existing scopes found)`);
 
     // 8. Scope Creation (Isolated Verification Boundary)
+    const testProbeIp = `10.240.${Math.floor(Math.random() * 200) + 1}.${Math.floor(Math.random() * 200) + 1}`;
     console.log(`[8/16] Testing POST /api/v1/workspaces/${workspaceId}/scopes ...`);
     const scopeName = `Verification Sandbox Scope ${Date.now()}`;
     const newScopeRes = await fetch(`${url}/api/v1/workspaces/${workspaceId}/scopes`, {
@@ -113,7 +114,7 @@ async function run() {
       body: JSON.stringify({
         name: scopeName,
         description: 'Explicit authorized boundary created during E2E verification',
-        inclusions: [{ type: 'IPV4', value: '192.168.100.1' }],
+        inclusions: [{ type: 'IPV4', value: testProbeIp }],
         allowedActions: ['PORT_SCAN', 'network:scan'],
       }),
     });
@@ -134,7 +135,6 @@ async function run() {
     assert.ok(Array.isArray(assets), 'Assets query must return an array');
     console.log(`       ✓ Assets OK (${assets.length} monitored assets registered)`);
 
-    const testProbeIp = '192.168.100.1';
     const newAssetRes = await fetch(`${url}/api/v1/workspaces/${workspaceId}/assets`, {
       method: 'POST',
       headers: authHeaders,
@@ -185,7 +185,7 @@ async function run() {
       headers: authHeaders,
       body: JSON.stringify({
         capabilityId: 'shn://capabilities/network/port-scan',
-        target: '192.168.100.1',
+        target: testProbeIp,
         scopeId: scopeId,
         action: 'network:scan',
         arguments: { timeoutMs: 2000 },
@@ -283,8 +283,86 @@ async function run() {
     assert.ok(sseReceived.includes('"status":"CONNECTED"'), 'Handshake must confirm connected status');
     console.log('       ✓ Server-Sent Events stream connected and received handshake');
 
+    // 17. AI Providers & Connectivity Probing
+    console.log('[17/22] Testing AI Providers API & Connection Probe ...');
+    const aiProvListRes = await fetch(`${url}/api/v1/ai/providers`, { headers: authHeaders });
+    assert.equal(aiProvListRes.status, 200, 'AI providers list must return 200');
+    const aiProvs = await aiProvListRes.json();
+    assert.ok(Array.isArray(aiProvs), 'AI providers must return array');
+    console.log(`       ✓ AI Providers List OK (${aiProvs.length} registered providers)`);
+
+    const testConnRes = await fetch(`${url}/api/v1/ai/test-connection`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ providerType: 'LOCAL_HEURISTIC' }),
+    });
+    assert.equal(testConnRes.status, 200, 'Test connection must return 200');
+    const testConnBody = await testConnRes.json();
+    assert.equal(testConnBody.success, true, 'Local heuristic test must succeed');
+    console.log('       ✓ AI Provider Test Connection OK:', testConnBody.message);
+
+    // 18. Evidence-Driven AI Security Assistant & Recommendations
+    console.log('[18/22] Testing AI Security Assistant Recommendations ...');
+    const genRecsRes = await fetch(`${url}/api/v1/workspaces/${workspaceId}/ai/recommendations/generate`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({}),
+    });
+    assert.equal(genRecsRes.status, 200, 'Generate AI recommendations must return 200');
+    const generatedRecs = await genRecsRes.json();
+    assert.ok(Array.isArray(generatedRecs) && generatedRecs.length > 0, 'Must generate recommendations');
+    console.log(`       ✓ AI Recommendations Generated OK (${generatedRecs.length} evidence-backed recommendations)`);
+
+    // 19. Professional Reports Generation & Signing
+    console.log('[19/22] Testing Professional Report Generation & SHA-256 Signing ...');
+    const genReportRes = await fetch(`${url}/api/v1/workspaces/${workspaceId}/reports`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        title: `Verification Assessment Report ${Date.now()}`,
+        reportType: 'TECHNICAL_ASSESSMENT',
+      }),
+    });
+    assert.equal(genReportRes.status, 201, 'Report generation must return 201');
+    const createdReport = await genReportRes.json();
+    assert.ok(createdReport.contentSha256 && createdReport.contentSha256.length === 64, 'Report must be signed with 64-char SHA-256');
+    console.log(`       ✓ Report Generated & Cryptographically Signed (SHA-256: ${createdReport.contentSha256.substring(0, 16)}...)`);
+
+    // 20. User Preferences & Layout Persistence
+    console.log('[20/22] Testing User Preferences & Saved Layouts ...');
+    const getPrefRes = await fetch(`${url}/api/v1/users/me/preferences`, { headers: authHeaders });
+    assert.equal(getPrefRes.status, 200, 'Get preferences must return 200');
+    const putPrefRes = await fetch(`${url}/api/v1/users/me/preferences`, {
+      method: 'PUT',
+      headers: authHeaders,
+      body: JSON.stringify({ theme: 'cyber-operations', accentColor: 'cyan', density: 'compact' }),
+    });
+    assert.equal(putPrefRes.status, 200, 'Save preferences must return 200');
+    const savedPrefs = await putPrefRes.json();
+    assert.equal(savedPrefs.theme, 'cyber-operations');
+    assert.equal(savedPrefs.accentColor, 'cyan');
+    console.log('       ✓ User Preferences Persisted in PostgreSQL (theme: cyber-operations, accent: cyan)');
+
+    // 21. Interactive Attack-Path Graph Exploration
+    console.log('[21/22] Testing Interactive Attack-Path Graph Assembly ...');
+    const graphRes = await fetch(`${url}/api/v1/workspaces/${workspaceId}/graph`, { headers: authHeaders });
+    assert.equal(graphRes.status, 200, 'Graph endpoint must return 200');
+    const graphData = await graphRes.json();
+    assert.ok(Array.isArray(graphData.nodes) && graphData.nodes.length > 0, 'Graph must contain assembled nodes');
+    assert.ok(Array.isArray(graphData.edges), 'Graph must contain relationship edges');
+    console.log(`       ✓ Attack-Path Graph OK (${graphData.nodes.length} nodes, ${graphData.edges.length} relationships)`);
+
+    // 22. Threat Intelligence & Geographic Intelligence Feeds
+    console.log('[22/22] Testing Geographic Threat Intelligence Feed ...');
+    const geoRes = await fetch(`${url}/api/v1/workspaces/${workspaceId}/threat-intel/geo`, { headers: authHeaders });
+    assert.equal(geoRes.status, 200, 'Geo intel endpoint must return 200');
+    const geoData = await geoRes.json();
+    assert.ok(Array.isArray(geoData.assessmentMarkers), 'Must include assessment markers');
+    assert.ok(Array.isArray(geoData.externalThreatPoints), 'Must include external threat points');
+    console.log(`       ✓ Geographic Threat Intelligence OK (${geoData.assessmentMarkers.length} targets, ${geoData.externalThreatPoints.length} threat points)`);
+
     console.log('\n========================================================================');
-    console.log('[SUCCESS] ALL 16 INTEGRATION CHECKS PASSED FLAWLESSLY!');
+    console.log('[SUCCESS] ALL 22 INTEGRATION CHECKS PASSED FLAWLESSLY!');
     console.log('========================================================================\n');
   } finally {
     console.log('[*] Tearing down server instance...');

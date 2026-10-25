@@ -22,6 +22,16 @@ import { renderExecutionsView } from './views/executions-view.js';
 import { renderFindingsView } from './views/findings-view.js';
 import { AuditView } from './views/audit-view.js';
 import { SettingsView } from './views/settings-view.js';
+import { GraphView } from './views/graph-view.js';
+import { TerminalView } from './views/terminal-view.js';
+import { AiAssistantView } from './views/ai-assistant-view.js';
+import { AiProvidersView } from './views/ai-providers-view.js';
+import { ReportsView } from './views/reports-view.js';
+import { EvidenceView } from './views/evidence-view.js';
+import { WorkflowsView } from './views/workflows-view.js';
+import { ReconView } from './views/recon-view.js';
+import { ScansView } from './views/scans-view.js';
+import { ActivityView } from './views/activity-view.js';
 
 interface ViewWithUnmount {
   mount(target: HTMLElement): void;
@@ -41,6 +51,16 @@ export class AppShell {
 
   private readonly auditView: AuditView;
   private readonly settingsView: SettingsView;
+  private readonly graphView: GraphView;
+  private readonly terminalView: TerminalView;
+  private readonly aiAssistantView: AiAssistantView;
+  private readonly aiProvidersView: AiProvidersView;
+  private readonly reportsView: ReportsView;
+  private readonly evidenceView: EvidenceView;
+  private readonly workflowsView: WorkflowsView;
+  private readonly reconView: ReconView;
+  private readonly scansView: ScansView;
+  private readonly activityView: ActivityView;
 
   constructor(
     private readonly root: HTMLElement,
@@ -53,9 +73,20 @@ export class AppShell {
   ) {
     this.auditView = new AuditView(this.apiClient, this.workspaceStore, this.notificationStore);
     this.settingsView = new SettingsView(this.settingsStore, this.authStore, this.notificationStore);
+    this.graphView = new GraphView(this.apiClient, this.workspaceStore, this.notificationStore);
+    this.terminalView = new TerminalView(this.apiClient, this.workspaceStore, this.notificationStore);
+    this.aiAssistantView = new AiAssistantView(this.apiClient, this.workspaceStore, this.notificationStore);
+    this.aiProvidersView = new AiProvidersView(this.apiClient, this.notificationStore);
+    this.reportsView = new ReportsView(this.apiClient, this.workspaceStore, this.notificationStore);
+    this.evidenceView = new EvidenceView(this.apiClient, this.workspaceStore, this.notificationStore);
+    this.workflowsView = new WorkflowsView(this.apiClient, this.workspaceStore, this.notificationStore);
+    this.reconView = new ReconView(this.apiClient, this.workspaceStore, this.notificationStore);
+    this.scansView = new ScansView(this.apiClient, this.workspaceStore, this.notificationStore);
+    this.activityView = new ActivityView(this.apiClient, this.workspaceStore, this.notificationStore);
   }
 
   init(): void {
+    this.settingsStore.setApiClient(this.apiClient);
     this.authStore.subscribe((state) => this.handleAuthState(state));
     this.workspaceStore.subscribe((state) => this.handleWorkspaceState(state));
     this.notificationStore.subscribe((toasts) => this.renderToasts(toasts));
@@ -204,7 +235,7 @@ export class AppShell {
             <div class="nav-section-title">Core Operations</div>
             <a class="nav-item" data-route="dashboard">
               <span class="nav-icon">📊</span>
-              <span class="nav-label">Dashboard</span>
+              <span class="nav-label">Operations Dashboard</span>
               <span class="nav-badge" style="background: var(--accent-subtle); color: var(--accent-primary);">LIVE</span>
             </a>
             <a class="nav-item" data-route="workspaces">
@@ -216,28 +247,68 @@ export class AppShell {
               <span class="nav-label">Asset Inventory</span>
             </a>
 
-            <div class="nav-section-title">Offensive & Defensive</div>
+            <div class="nav-section-title">Offensive & Discovery</div>
+            <a class="nav-item" data-route="reconnaissance">
+              <span class="nav-icon">🛰️</span>
+              <span class="nav-label">Reconnaissance</span>
+            </a>
+            <a class="nav-item" data-route="scans">
+              <span class="nav-icon">🛡️</span>
+              <span class="nav-label">Scans & Assessments</span>
+            </a>
             <a class="nav-item" data-route="capabilities">
               <span class="nav-icon">⚡</span>
-              <span class="nav-label">Capability Registry</span>
+              <span class="nav-label">Tool Registry</span>
             </a>
-            <a class="nav-item" data-route="executions">
-              <span class="nav-icon">🚀</span>
-              <span class="nav-label">Execution Supervisor</span>
-            </a>
-            <a class="nav-item" data-route="findings">
-              <span class="nav-icon">🛡️</span>
-              <span class="nav-label">Vulnerability Findings</span>
+            <a class="nav-item" data-route="workflows">
+              <span class="nav-icon">🔄</span>
+              <span class="nav-label">Workflow Pipelines</span>
             </a>
 
-            <div class="nav-section-title">Platform & Governance</div>
+            <div class="nav-section-title">AI & Threat Intelligence</div>
+            <a class="nav-item" data-route="ai-assistant">
+              <span class="nav-icon">🧠</span>
+              <span class="nav-label">AI Security Assistant</span>
+            </a>
+            <a class="nav-item" data-route="graph">
+              <span class="nav-icon">🕸️</span>
+              <span class="nav-label">Attack-Path Graph</span>
+            </a>
+            <a class="nav-item" data-route="ai-providers">
+              <span class="nav-icon">🤖</span>
+              <span class="nav-label">AI Providers</span>
+            </a>
+
+            <div class="nav-section-title">Findings & Evidence</div>
+            <a class="nav-item" data-route="findings">
+              <span class="nav-icon">🔍</span>
+              <span class="nav-label">Vulnerabilities & Findings</span>
+            </a>
+            <a class="nav-item" data-route="evidence">
+              <span class="nav-icon">🗄️</span>
+              <span class="nav-label">Evidence Vault</span>
+            </a>
+            <a class="nav-item" data-route="reports">
+              <span class="nav-icon">📁</span>
+              <span class="nav-label">Security Reports</span>
+            </a>
+
+            <div class="nav-section-title">Execution & Governance</div>
+            <a class="nav-item" data-route="terminal">
+              <span class="nav-icon">💻</span>
+              <span class="nav-label">Execution Terminal</span>
+            </a>
+            <a class="nav-item" data-route="activity">
+              <span class="nav-icon">⏱️</span>
+              <span class="nav-label">Operational Activity</span>
+            </a>
             <a class="nav-item" data-route="audit">
               <span class="nav-icon">📋</span>
-              <span class="nav-label">Audit & Telemetry</span>
+              <span class="nav-label">Audit Ledger</span>
             </a>
             <a class="nav-item" data-route="settings">
               <span class="nav-icon">⚙️</span>
-              <span class="nav-label">Settings & Aesthetics</span>
+              <span class="nav-label">Settings & Themes</span>
             </a>
           </nav>
 
@@ -553,14 +624,54 @@ export class AppShell {
       case 'assets':
         renderAssetsView(mount, viewDeps);
         break;
+      case 'reconnaissance':
+        this.reconView.mount(mount);
+        this.currentViewInstance = this.reconView;
+        break;
+      case 'scans':
+        this.scansView.mount(mount);
+        this.currentViewInstance = this.scansView;
+        break;
       case 'capabilities':
         renderCapabilitiesView(mount, viewDeps);
+        break;
+      case 'workflows':
+        this.workflowsView.mount(mount);
+        this.currentViewInstance = this.workflowsView;
+        break;
+      case 'ai-assistant':
+        this.aiAssistantView.mount(mount);
+        this.currentViewInstance = this.aiAssistantView;
+        break;
+      case 'graph':
+        this.graphView.mount(mount);
+        this.currentViewInstance = this.graphView;
+        break;
+      case 'findings':
+        renderFindingsView(mount, viewDeps);
+        break;
+      case 'evidence':
+        this.evidenceView.mount(mount);
+        this.currentViewInstance = this.evidenceView;
+        break;
+      case 'reports':
+        this.reportsView.mount(mount);
+        this.currentViewInstance = this.reportsView;
         break;
       case 'executions':
         renderExecutionsView(mount, viewDeps);
         break;
-      case 'findings':
-        renderFindingsView(mount, viewDeps);
+      case 'terminal':
+        this.terminalView.mount(mount);
+        this.currentViewInstance = this.terminalView;
+        break;
+      case 'ai-providers':
+        this.aiProvidersView.mount(mount);
+        this.currentViewInstance = this.aiProvidersView;
+        break;
+      case 'activity':
+        this.activityView.mount(mount);
+        this.currentViewInstance = this.activityView;
         break;
       case 'audit':
         this.auditView.mount(mount);
@@ -621,17 +732,26 @@ export class AppShell {
     if (!container) return;
 
     const commands: Array<{ title: string; subtitle: string; icon: string; action: () => void }> = [
-      { title: 'Operations Dashboard', subtitle: 'View operational KPIs, timeline, and topology', icon: '📊', action: () => this.router.navigate('dashboard') },
-      { title: 'Asset Inventory', subtitle: 'Manage targets, canonical addresses, and criticality', icon: '🖥️', action: () => this.router.navigate('assets') },
-      { title: 'Capability Registry', subtitle: 'Weaponized and defensive tool discovery', icon: '⚡', action: () => this.router.navigate('capabilities') },
-      { title: 'Execution Supervisor', subtitle: 'Launch tasks, inspect output, stream results', icon: '🚀', action: () => this.router.navigate('executions') },
-      { title: 'Vulnerability Findings', subtitle: 'Triage CVSS scores, evidence hashes, and state', icon: '🛡️', action: () => this.router.navigate('findings') },
+      { title: 'Operations Dashboard', subtitle: 'View operational KPIs, world map, and telemetry', icon: '📊', action: () => this.router.navigate('dashboard') },
       { title: 'Workspaces & Scope', subtitle: 'Inspect authorization gates and CIDR boundaries', icon: '🌐', action: () => this.router.navigate('workspaces') },
-      { title: 'Audit & Telemetry', subtitle: 'Cryptographic ledger and Prometheus metrics', icon: '📋', action: () => this.router.navigate('audit') },
+      { title: 'Asset Inventory', subtitle: 'Manage targets, canonical addresses, and criticality', icon: '🖥️', action: () => this.router.navigate('assets') },
+      { title: 'Reconnaissance', subtitle: 'DNS zone discovery, HTTP fingerprinting', icon: '🛰️', action: () => this.router.navigate('reconnaissance') },
+      { title: 'Scans & Assessments', subtitle: 'Policy-governed vulnerability scans', icon: '🛡️', action: () => this.router.navigate('scans') },
+      { title: 'Tool Registry', subtitle: 'Discovered offensive & defensive capabilities', icon: '⚡', action: () => this.router.navigate('capabilities') },
+      { title: 'Workflow Pipelines', subtitle: 'Multi-stage assessment orchestration', icon: '🔄', action: () => this.router.navigate('workflows') },
+      { title: 'AI Security Assistant', subtitle: 'Evidence-driven recommendations & chat', icon: '🧠', action: () => this.router.navigate('ai-assistant') },
+      { title: 'Attack-Path Graph', subtitle: 'Obsidian-like interactive topological relationship graph', icon: '🕸️', action: () => this.router.navigate('graph') },
+      { title: 'AI Providers', subtitle: 'Configure Ollama, OpenAI, Anthropic, or Heuristic', icon: '🤖', action: () => this.router.navigate('ai-providers') },
+      { title: 'Vulnerabilities & Findings', subtitle: 'Triage CVSS scores, evidence hashes, and lifecycle', icon: '🔍', action: () => this.router.navigate('findings') },
+      { title: 'Evidence Vault', subtitle: 'Cryptographic artifacts and SHA-256 chain of custody', icon: '🗄️', action: () => this.router.navigate('evidence') },
+      { title: 'Security Reports', subtitle: 'Generate SHA-256 signed executive & technical reports', icon: '📁', action: () => this.router.navigate('reports') },
+      { title: 'Execution Terminal', subtitle: 'Background tool supervision & live terminal logs', icon: '💻', action: () => this.router.navigate('terminal') },
+      { title: 'Operational Activity', subtitle: 'Chronological timeline of system events and alerts', icon: '⏱️', action: () => this.router.navigate('activity') },
+      { title: 'Audit Ledger', subtitle: 'Cryptographic immutable audit records', icon: '📋', action: () => this.router.navigate('audit') },
       { title: 'Settings & Themes', subtitle: 'Configure Day/Night/Ambient modes and accents', icon: '⚙️', action: () => this.router.navigate('settings') },
-      { title: 'Theme: Night Mode', subtitle: 'Switch to deep-space dark palette', icon: '🌌', action: () => this.settingsStore.setTheme('night') },
+      { title: 'Theme: Cyber-Operations', subtitle: 'Switch to deep-space dark palette', icon: '🌌', action: () => this.settingsStore.setTheme('night') },
       { title: 'Theme: Ambient Mode', subtitle: 'Switch to translucent atmospheric glow', icon: '✨', action: () => this.settingsStore.setTheme('ambient') },
-      { title: 'Theme: Day Mode', subtitle: 'Switch to clean high-readability daylight', icon: '☀️', action: () => this.settingsStore.setTheme('day') },
+      { title: 'Theme: Light Mode', subtitle: 'Switch to clean high-readability daylight', icon: '☀️', action: () => this.settingsStore.setTheme('day') },
     ];
 
     const q = query.toLowerCase().trim();

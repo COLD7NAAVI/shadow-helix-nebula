@@ -41,6 +41,11 @@ import { AuditController } from './controllers/audit.controller.js';
 import { OpenApiController } from './controllers/openapi.controller.js';
 import { EventStreamController } from './controllers/event-stream.controller.js';
 import { EventStreamHub } from './sse/event-stream-hub.js';
+import { AiController } from './controllers/ai.controller.js';
+import { ReportController } from './controllers/report.controller.js';
+import { PreferencesController } from './controllers/preferences.controller.js';
+import { GraphController } from './controllers/graph.controller.js';
+import { ThreatIntelController } from './controllers/threat-intel.controller.js';
 
 export interface AppDependencies {
   pool?: DatabasePool | undefined;
@@ -63,6 +68,13 @@ export interface AppDependencies {
   authService?: AuthorizationService | undefined;
   eventStreamHub?: EventStreamHub | undefined;
   config?: Partial<GatewayConfig> | undefined;
+  userPreferencesRepo?: any | undefined;
+  graphLayoutRepo?: any | undefined;
+  aiProviderRepo?: any | undefined;
+  aiRecommendationRepo?: any | undefined;
+  reportRepo?: any | undefined;
+  threatIntelRepo?: any | undefined;
+  secretsVault?: any | undefined;
 }
 
 
@@ -173,6 +185,68 @@ export function createIngressApplication(deps: AppDependencies): IngressServer {
   router.get('/api/v1/workspaces/:workspaceId/events/stream', authMiddleware, tenancyMiddleware, (req, res) =>
     eventStreamCtrl.streamEvents(req, res)
   );
+
+  // 11. AI Provider Framework & Security Assistant
+  const aiCtrl = new AiController({
+    aiProviderRepo: deps.aiProviderRepo,
+    aiRecommendationRepo: deps.aiRecommendationRepo,
+    assetRepo: deps.assetRepo,
+    findingRepo: deps.findingRepo,
+    executionRepo: deps.executionRepo,
+    scopeRepo: deps.scopeRepo,
+    workspaceRepo: deps.workspaceRepo,
+    capabilityDispatcher: deps.capabilityDispatcher,
+    secretsVault: deps.secretsVault,
+  });
+  router.get('/api/v1/ai/providers', authMiddleware, (req, res) => aiCtrl.listProviders(req, res));
+  router.post('/api/v1/ai/providers', authMiddleware, (req, res) => aiCtrl.createProvider(req, res));
+  router.post('/api/v1/ai/test-connection', authMiddleware, (req, res) => aiCtrl.testConnection(req, res));
+  router.get('/api/v1/workspaces/:workspaceId/ai/recommendations', authMiddleware, tenancyMiddleware, (req, res) => aiCtrl.listRecommendations(req, res));
+  router.post('/api/v1/workspaces/:workspaceId/ai/recommendations/generate', authMiddleware, tenancyMiddleware, (req, res) => aiCtrl.generateRecommendations(req, res));
+  router.post('/api/v1/workspaces/:workspaceId/ai/recommendations/:id/approve', authMiddleware, tenancyMiddleware, (req, res) => aiCtrl.approveRecommendation(req, res));
+  router.post('/api/v1/workspaces/:workspaceId/ai/recommendations/:id/dismiss', authMiddleware, tenancyMiddleware, (req, res) => aiCtrl.dismissRecommendation(req, res));
+  router.post('/api/v1/workspaces/:workspaceId/ai/chat', authMiddleware, tenancyMiddleware, (req, res) => aiCtrl.chat(req, res));
+
+  // 12. Professional Reports
+  const reportCtrl = new ReportController({
+    reportRepo: deps.reportRepo,
+    assetRepo: deps.assetRepo,
+    findingRepo: deps.findingRepo,
+    executionRepo: deps.executionRepo,
+    scopeRepo: deps.scopeRepo,
+    workspaceRepo: deps.workspaceRepo,
+  });
+  router.get('/api/v1/workspaces/:workspaceId/reports', authMiddleware, tenancyMiddleware, (req, res) => reportCtrl.list(req, res));
+  router.get('/api/v1/workspaces/:workspaceId/reports/:reportId', authMiddleware, tenancyMiddleware, (req, res) => reportCtrl.get(req, res));
+  router.post('/api/v1/workspaces/:workspaceId/reports', authMiddleware, tenancyMiddleware, (req, res) => reportCtrl.generate(req, res));
+  router.get('/api/v1/workspaces/:workspaceId/reports/:reportId/html', authMiddleware, tenancyMiddleware, (req, res) => reportCtrl.getHtml(req, res));
+
+  // 13. User Preferences & Layouts
+  const prefCtrl = new PreferencesController({ userPreferencesRepo: deps.userPreferencesRepo });
+  router.get('/api/v1/users/me/preferences', authMiddleware, (req, res) => prefCtrl.get(req, res));
+  router.put('/api/v1/users/me/preferences', authMiddleware, (req, res) => prefCtrl.save(req, res));
+
+  // 14. Interactive Attack-Path & Graph Exploration
+  const graphCtrl = new GraphController({
+    graphLayoutRepo: deps.graphLayoutRepo,
+    assetRepo: deps.assetRepo,
+    findingRepo: deps.findingRepo,
+    executionRepo: deps.executionRepo,
+    scopeRepo: deps.scopeRepo,
+    aiRecommendationRepo: deps.aiRecommendationRepo,
+  });
+  router.get('/api/v1/workspaces/:workspaceId/graph', authMiddleware, tenancyMiddleware, (req, res) => graphCtrl.get(req, res));
+  router.put('/api/v1/workspaces/:workspaceId/graph', authMiddleware, tenancyMiddleware, (req, res) => graphCtrl.save(req, res));
+
+  // 15. Threat Intelligence & Geographic Intelligence
+  const threatCtrl = new ThreatIntelController({
+    threatIntelRepo: deps.threatIntelRepo,
+    assetRepo: deps.assetRepo,
+  });
+  router.get('/api/v1/threat-intel/cve/:cveId', authMiddleware, (req, res) => threatCtrl.getCve(req, res));
+  router.get('/api/v1/threat-intel/feed', authMiddleware, (req, res) => threatCtrl.getFeed(req, res));
+  router.get('/api/v1/threat-intel/geo', authMiddleware, (req, res) => threatCtrl.getGeoIntel(req, res));
+  router.get('/api/v1/workspaces/:workspaceId/threat-intel/geo', authMiddleware, tenancyMiddleware, (req, res) => threatCtrl.getGeoIntel(req, res));
 
   return new IngressServer({
     config: deps.config,

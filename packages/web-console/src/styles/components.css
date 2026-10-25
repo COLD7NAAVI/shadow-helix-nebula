@@ -499,3 +499,229 @@
   border-color: #ffffff;
   box-shadow: 0 0 12px currentColor;
 }
+
+/* =========================================================================
+   GEOGRAPHIC INTELLIGENCE & WORLD MAP STYLING (Reference Image 1)
+   ========================================================================= */
+.geo-intel-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.geo-map-viewport {
+  width: 100%;
+  height: 380px;
+  background: radial-gradient(circle at 50% 50%, #08102a 0%, #030612 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.geo-map-svg {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+.geo-map-svg:active {
+  cursor: grabbing;
+}
+
+.geo-grid-line {
+  stroke: rgba(0, 240, 255, 0.08);
+  stroke-width: 0.5;
+  stroke-dasharray: 2 4;
+}
+
+.geo-landmass {
+  fill: rgba(14, 25, 60, 0.6);
+  stroke: rgba(0, 240, 255, 0.25);
+  stroke-width: 0.8;
+  transition: fill var(--transition-fast);
+}
+
+.geo-landmass:hover {
+  fill: rgba(22, 38, 90, 0.8);
+}
+
+.geo-marker-pulse {
+  animation: geoPulse 2s infinite ease-out;
+  transform-origin: center;
+}
+
+@keyframes geoPulse {
+  0% { r: 4; opacity: 1; stroke-width: 1; }
+  50% { r: 12; opacity: 0.4; stroke-width: 2; }
+  100% { r: 18; opacity: 0; stroke-width: 0.5; }
+}
+
+.geo-legend {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: var(--bg-surface-glass-heavy);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 11px;
+  display: flex;
+  gap: 16px;
+  z-index: 10;
+}
+
+/* =========================================================================
+   INTERACTIVE GRAPH EXPLORATION (Obsidian-Style)
+   ========================================================================= */
+.graph-canvas-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at center, #0a0f2d 0%, #040612 100%);
+}
+
+.graph-toolbar {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 20;
+  display: flex;
+  gap: 8px;
+  background: var(--bg-surface-glass-heavy);
+  backdrop-filter: blur(12px);
+  padding: 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-glass);
+}
+
+.graph-detail-drawer {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  bottom: 14px;
+  width: 380px;
+  background: var(--bg-surface-glass-heavy);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform var(--transition-normal);
+}
+
+.node-hypothesis {
+  stroke-dasharray: 4 4;
+  filter: drop-shadow(0 0 8px rgba(244, 63, 94, 0.7));
+}
+
+/* =========================================================================
+   EXECUTION TERMINAL & BACKGROUND RUNNER
+   ========================================================================= */
+.terminal-card {
+  background: var(--bg-terminal);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-header {
+  background: rgba(10, 16, 36, 0.95);
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.terminal-body {
+  padding: 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: #38bdf8;
+  max-height: 480px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.terminal-prompt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(6, 10, 24, 0.95);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* =========================================================================
+   EVIDENCE-DRIVEN AI SECURITY ASSISTANT
+   ========================================================================= */
+.ai-rec-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.ai-rec-card:hover {
+  border-color: var(--accent-border);
+  transform: translateY(-2px);
+}
+
+.ai-rec-card.high-risk {
+  border-left: 4px solid var(--color-critical);
+}
+
+.ai-rec-card.med-risk {
+  border-left: 4px solid var(--color-high);
+}
+
+.ai-rec-card.low-risk {
+  border-left: 4px solid var(--accent-primary);
+}
+
+/* =========================================================================
+   PROFESSIONAL REPORTING & PRINT MEDIA
+   ========================================================================= */
+.report-document {
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: var(--radius-lg);
+  padding: 48px;
+  max-width: 900px;
+  margin: 0 auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  font-family: var(--font-sans);
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .sidebar, .topbar, .btn, .no-print {
+    display: none !important;
+  }
+  .report-document {
+    padding: 0 !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+  }
+}

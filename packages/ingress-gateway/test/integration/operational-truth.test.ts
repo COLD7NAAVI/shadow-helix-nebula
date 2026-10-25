@@ -11,11 +11,21 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { startStandaloneServer } from '../../dist/standalone.js';
+import { ensureDatabase, createTestPool, resetDatabase } from '../../../data-access/test/test-helper.ts';
+import { closeDatabasePool } from '@shn/data-access';
 
 describe('Operational Truth & Zero-Trust State Enforcement', () => {
   it('guarantees clean operational baseline with zero fabricated records on startup', async () => {
     // Ensure demo fixtures flag is NOT set
     delete process.env.SHN_LOAD_DEMO_FIXTURES;
+    const testDbName = 'shn_test_operational_truth';
+    await ensureDatabase(testDbName);
+    const setupPool = createTestPool(testDbName);
+    await resetDatabase(setupPool);
+    await closeDatabasePool(setupPool);
+
+    const prevDbName = process.env.SHN_DB_NAME;
+    process.env.SHN_DB_NAME = testDbName;
 
     const { server, url } = await startStandaloneServer(8097);
 
@@ -85,6 +95,11 @@ describe('Operational Truth & Zero-Trust State Enforcement', () => {
       );
     } finally {
       await server.stop();
+      if (prevDbName !== undefined) {
+        process.env.SHN_DB_NAME = prevDbName;
+      } else {
+        delete process.env.SHN_DB_NAME;
+      }
     }
   });
 
@@ -118,6 +133,144 @@ describe('Operational Truth & Zero-Trust State Enforcement', () => {
         process.env.SHN_SIGNER_SECRET = origSecret;
       } else {
         delete process.env.SHN_SIGNER_SECRET;
+      }
+    }
+  });
+
+  it('strictly rejects in-memory fallback in production mode when PostgreSQL is unreachable', async () => {
+    const origEnv = process.env.NODE_ENV;
+    const origSecret = process.env.SHN_SIGNER_SECRET;
+    const origDbPort = process.env.SHN_DB_PORT;
+    const origTimeout = process.env.SHN_DB_CONNECTION_TIMEOUT_MS;
+
+    try {
+      process.env.NODE_ENV = 'production';
+      process.env.SHN_SIGNER_SECRET = 'production-super-secure-key-32b-length-ok!!';
+      process.env.SHN_DB_PORT = '54399';
+      process.env.SHN_DB_CONNECTION_TIMEOUT_MS = '500';
+
+      await assert.rejects(
+        async () => {
+          await startStandaloneServer(8094);
+        },
+        {
+          name: 'Error',
+          message: /Production Security Invariant Violation: PostgreSQL persistence is mandatory in production/,
+        }
+      );
+    } finally {
+      process.env.NODE_ENV = origEnv;
+      if (origSecret !== undefined) {
+        process.env.SHN_SIGNER_SECRET = origSecret;
+      } else {
+        delete process.env.SHN_SIGNER_SECRET;
+      }
+      if (origDbPort !== undefined) {
+        process.env.SHN_DB_PORT = origDbPort;
+      } else {
+        delete process.env.SHN_DB_PORT;
+      }
+      if (origTimeout !== undefined) {
+        process.env.SHN_DB_CONNECTION_TIMEOUT_MS = origTimeout;
+      } else {
+        delete process.env.SHN_DB_CONNECTION_TIMEOUT_MS;
+      }
+    }
+  });
+
+  it('strictly rejects in-memory fallback when SHN_REQUIRE_POSTGRES=true and database is unreachable', async () => {
+    const origReq = process.env.SHN_REQUIRE_POSTGRES;
+    const origDbPort = process.env.SHN_DB_PORT;
+    const origTimeout = process.env.SHN_DB_CONNECTION_TIMEOUT_MS;
+
+    try {
+      process.env.SHN_REQUIRE_POSTGRES = 'true';
+      process.env.SHN_DB_PORT = '54399';
+      process.env.SHN_DB_CONNECTION_TIMEOUT_MS = '500';
+
+      await assert.rejects(
+        async () => {
+          await startStandaloneServer(8093);
+        },
+        {
+          name: 'Error',
+          message: /Persistence Configuration Error: PostgreSQL persistence is required/,
+        }
+      );
+    } finally {
+      if (origReq !== undefined) {
+        process.env.SHN_REQUIRE_POSTGRES = origReq;
+      } else {
+        delete process.env.SHN_REQUIRE_POSTGRES;
+      }
+      if (origDbPort !== undefined) {
+        process.env.SHN_DB_PORT = origDbPort;
+      } else {
+        delete process.env.SHN_DB_PORT;
+      }
+      if (origTimeout !== undefined) {
+        process.env.SHN_DB_CONNECTION_TIMEOUT_MS = origTimeout;
+      } else {
+        delete process.env.SHN_DB_CONNECTION_TIMEOUT_MS;
+      }
+    }
+  });
+
+  it('strictly rejects in-memory fallback when SHN_PERSISTENCE_ENGINE=postgres and database is unreachable', async () => {
+    const origEngine = process.env.SHN_PERSISTENCE_ENGINE;
+    const origDbPort = process.env.SHN_DB_PORT;
+    const origTimeout = process.env.SHN_DB_CONNECTION_TIMEOUT_MS;
+
+    try {
+      process.env.SHN_PERSISTENCE_ENGINE = 'postgres';
+      process.env.SHN_DB_PORT = '54399';
+      process.env.SHN_DB_CONNECTION_TIMEOUT_MS = '500';
+
+      await assert.rejects(
+        async () => {
+          await startStandaloneServer(8092);
+        },
+        {
+          name: 'Error',
+          message: /Persistence Configuration Error: PostgreSQL persistence is required/,
+        }
+      );
+    } finally {
+      if (origEngine !== undefined) {
+        process.env.SHN_PERSISTENCE_ENGINE = origEngine;
+      } else {
+        delete process.env.SHN_PERSISTENCE_ENGINE;
+      }
+      if (origDbPort !== undefined) {
+        process.env.SHN_DB_PORT = origDbPort;
+      } else {
+        delete process.env.SHN_DB_PORT;
+      }
+      if (origTimeout !== undefined) {
+        process.env.SHN_DB_CONNECTION_TIMEOUT_MS = origTimeout;
+      } else {
+        delete process.env.SHN_DB_CONNECTION_TIMEOUT_MS;
+      }
+    }
+  });
+
+  it('preserves intentional in-memory execution when SHN_PERSISTENCE_ENGINE=memory', async () => {
+    const origEngine = process.env.SHN_PERSISTENCE_ENGINE;
+
+    try {
+      process.env.SHN_PERSISTENCE_ENGINE = 'memory';
+
+      const res = await startStandaloneServer(8091);
+      try {
+        assert.equal(res.isPostgres, false, 'Explicit in-memory persistence must report isPostgres: false');
+      } finally {
+        await res.server.stop();
+      }
+    } finally {
+      if (origEngine !== undefined) {
+        process.env.SHN_PERSISTENCE_ENGINE = origEngine;
+      } else {
+        delete process.env.SHN_PERSISTENCE_ENGINE;
       }
     }
   });

@@ -336,4 +336,16 @@ export class FindingRepository {
     const result = await executor.query(query, [workspaceId]);
     return Number(result.rows[0]?.count ?? 0);
   }
+
+  async listByWorkspace(
+    workspaceId: WorkspaceId,
+    options: ListFindingOptions = {},
+    client?: DatabaseClient
+  ): Promise<FindingRecord[]> {
+    return this.listFindings(workspaceId, options, client);
+  }
+
+  async create(params: CreateFindingParams, client?: DatabaseClient): Promise<FindingRecord> {
+    return this.createFinding(params, client);
+  }
 }

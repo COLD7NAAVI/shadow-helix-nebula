@@ -11,7 +11,44 @@ if ($existing) {
     exit 0
 }
 
-# Check if Docker is running
+# Prioritize local PostgreSQL 17 cluster if binaries exist (preserves persistent records in tmp/test-db)
+$pgBin = "C:\Program Files\PostgreSQL\17\bin"
+if (Test-Path $pgBin) {
+    Write-Host "[*] Starting local PostgreSQL 17 test cluster on port $Port..."
+    if (-not (Test-Path $TestDbDir)) {
+        & "$pgBin\initdb.exe" -U postgres -A trust -E UTF8 $TestDbDir | Out-Null
+    }
+
+    # Clean up stale postmaster.pid if process is not actually running
+    $pidFile = Join-Path $TestDbDir "postmaster.pid"
+    if (Test-Path $pidFile) {
+        $firstLine = (Get-Content $pidFile -TotalCount 1)
+        if ($firstLine -match "^\d+$") {
+            $pidNum = [int]$firstLine
+            $proc = Get-Process -Id $pidNum -ErrorAction SilentlyContinue
+            if (-not $proc) {
+                Write-Host "[*] Removing stale postmaster.pid (PID $pidNum is not running)..."
+                Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    $logFile = Join-Path $PSScriptRoot "..\tmp\test-db.log"
+    if (Test-Path "$pgBin\pg_ctl.exe") {
+        & "$pgBin\pg_ctl.exe" start -D "$TestDbDir" -o "-p $Port" -l "$logFile"
+    } else {
+        Start-Process -FilePath "$pgBin\postgres.exe" -ArgumentList "-D `"$TestDbDir`" -p $Port" -NoNewWindow
+    }
+
+    Start-Sleep -Seconds 2
+    $started = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if ($started) {
+        Write-Host "[+] Local PostgreSQL test cluster started on port $Port."
+        exit 0
+    }
+}
+
+# Fallback to Docker if local PostgreSQL binary is not found
 $dockerRunning = $false
 try {
     $dockerInfo = docker info 2>&1
@@ -25,18 +62,5 @@ if ($dockerRunning) {
     exit 0
 }
 
-# Fallback to local PostgreSQL binaries
-$pgBin = "C:\Program Files\PostgreSQL\17\bin"
-if (Test-Path $pgBin) {
-    Write-Host "[*] Docker not running. Starting local PostgreSQL 17 test cluster on port $Port..."
-    if (-not (Test-Path $TestDbDir)) {
-        & "$pgBin\initdb.exe" -U postgres -A trust -E UTF8 $TestDbDir | Out-Null
-    }
-    Start-Process -FilePath "$pgBin\postgres.exe" -ArgumentList "-D `"$TestDbDir`" -p $Port" -NoNewWindow
-    Start-Sleep -Seconds 2
-    Write-Host "[+] Local PostgreSQL test cluster started on port $Port."
-    exit 0
-}
-
-Write-Error "Neither Docker nor local PostgreSQL 17 installation found. Cannot start test database."
+Write-Error "Neither local PostgreSQL 17 installation nor Docker found. Cannot start test database."
 exit 1

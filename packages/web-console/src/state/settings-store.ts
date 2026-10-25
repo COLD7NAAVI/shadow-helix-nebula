@@ -3,6 +3,7 @@
  */
 
 import type { PersonalizationSettings, ThemeMode, AccentColor, FontPreference, DensityPreference, BackgroundStyle } from '../contracts.js';
+import type { ApiClient } from '../services/api-client.js';
 
 const STORAGE_KEY = 'shn_personalization_v1';
 
@@ -20,10 +21,44 @@ const DEFAULT_SETTINGS: PersonalizationSettings = {
 export class SettingsStore {
   private settings: PersonalizationSettings;
   private readonly listeners = new Set<(settings: PersonalizationSettings) => void>();
+  private apiClient: ApiClient | null = null;
 
-  constructor() {
+  constructor(apiClient?: ApiClient) {
+    this.apiClient = apiClient || null;
     this.settings = this.loadSettings();
     this.applyToDom();
+  }
+
+  setApiClient(api: ApiClient): void {
+    this.apiClient = api;
+    this.syncFromBackend();
+  }
+
+  async syncFromBackend(): Promise<void> {
+    if (!this.apiClient) return;
+    try {
+      const prefs = await this.apiClient.getUserPreferences();
+      if (prefs) {
+        let theme: ThemeMode = 'night';
+        if (prefs.theme === 'light') theme = 'day';
+        else if (prefs.theme === 'ambient') theme = 'ambient';
+
+        let accent: AccentColor = 'cyan';
+        if (prefs.accentColor === 'emerald') accent = 'emerald';
+        else if (prefs.accentColor === 'violet') accent = 'violet';
+        else if (prefs.accentColor === 'amber') accent = 'amber';
+        else if (prefs.accentColor === 'rose') accent = 'magenta';
+
+        this.updateSettings({
+          theme,
+          accent,
+          density: prefs.density === 'compact' ? 'compact' : 'comfortable',
+          reducedMotion: Boolean(prefs.reducedMotion),
+        }, false);
+      }
+    } catch {
+      // Offline / unauthenticated fallback to local storage
+    }
   }
 
   private loadSettings(): PersonalizationSettings {
@@ -48,7 +83,7 @@ export class SettingsStore {
     return () => this.listeners.delete(listener);
   }
 
-  updateSettings(updates: Partial<PersonalizationSettings>): void {
+  updateSettings(updates: Partial<PersonalizationSettings>, persistToBackend = true): void {
     this.settings = { ...this.settings, ...updates };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.settings));
@@ -58,6 +93,19 @@ export class SettingsStore {
     this.applyToDom();
     for (const listener of this.listeners) {
       listener(this.getSettings());
+    }
+
+    if (persistToBackend && this.apiClient) {
+      const theme = this.settings.theme === 'day' ? 'light' : this.settings.theme === 'ambient' ? 'ambient' : 'cyber-operations';
+      const accent = this.settings.accent === 'magenta' ? 'rose' : this.settings.accent;
+      this.apiClient.saveUserPreferences({
+        theme,
+        accentColor: accent as any,
+        density: this.settings.density,
+        reducedMotion: this.settings.reducedMotion,
+      }).catch(() => {
+        // Backend sync failure silent fallback
+      });
     }
   }
 

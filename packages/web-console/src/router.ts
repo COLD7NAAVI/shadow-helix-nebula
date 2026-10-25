@@ -12,9 +12,19 @@ export type RouteId =
   | 'dashboard'
   | 'workspaces'
   | 'assets'
+  | 'reconnaissance'
+  | 'scans'
   | 'capabilities'
-  | 'executions'
+  | 'workflows'
+  | 'ai-assistant'
+  | 'graph'
   | 'findings'
+  | 'evidence'
+  | 'reports'
+  | 'executions'
+  | 'terminal'
+  | 'ai-providers'
+  | 'activity'
   | 'audit'
   | 'settings';
 
@@ -69,9 +79,19 @@ export class Router {
       'dashboard',
       'workspaces',
       'assets',
+      'reconnaissance',
+      'scans',
       'capabilities',
-      'executions',
+      'workflows',
+      'ai-assistant',
+      'graph',
       'findings',
+      'evidence',
+      'reports',
+      'executions',
+      'terminal',
+      'ai-providers',
+      'activity',
       'audit',
       'settings',
     ];

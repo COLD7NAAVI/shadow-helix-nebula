@@ -23,6 +23,7 @@ import {
 } from '@shn/shared-kernel';
 import {
   createDatabasePool,
+  closeDatabasePool,
   runMigrations,
   type DatabasePool,
   type DatabaseConfig,
@@ -37,6 +38,12 @@ import {
   ExecutionRepository,
   ScopeRepository,
   AuditEventRepository,
+  UserPreferencesRepository,
+  GraphLayoutRepository,
+  AiProviderRepository,
+  AiRecommendationRepository,
+  ReportRepository,
+  ThreatIntelRepository,
 } from '@shn/data-access';
 import { SecurityContextSigner, PasswordHasher } from '@shn/auth-rbac';
 import { ScopeGatekeeper, ScopeTokenSigner, TenancyValidator } from '@shn/scope-gatekeeper';
@@ -46,6 +53,8 @@ import {
   CapabilityDispatcher,
   NetworkPortScanAdapter,
   HttpDiscoveryAdapter,
+  TlsInspectAdapter,
+  DnsReconAdapter,
 } from '@shn/capability-registry';
 import { AssetInventoryService, FindingLifecycleService } from '@shn/asset-inventory';
 import { EventStreamHub } from './sse/event-stream-hub.js';
@@ -138,6 +147,12 @@ interface InMemoryStore {
   executionAttempts: any[];
   scopes: Map<string, any>;
   auditEvents: any[];
+  userPreferences: Map<string, any>;
+  graphLayouts: Map<string, any>;
+  aiProviders: Map<string, any>;
+  aiRecommendations: Map<string, any>;
+  reports: Map<string, any>;
+  threatIntel: Map<string, any>;
 }
 
 function createInMemoryDatabasePool(): DatabasePool {
@@ -532,6 +547,154 @@ function createInMemoryRepositories(store: InMemoryStore) {
     },
   };
 
+  const userPreferencesRepo: any = {
+    findByUserId: async (userId: string, workspaceId: string | null = null) => {
+      const key = `${userId}:${workspaceId || 'null'}`;
+      return store.userPreferences.get(key) || null;
+    },
+    upsertPreferences: async (params: any) => {
+      const key = `${params.userId}:${params.workspaceId || 'null'}`;
+      const rec = {
+        id: generateUUIDv7(),
+        userId: params.userId,
+        workspaceId: params.workspaceId || null,
+        theme: params.theme || 'cyber-operations',
+        accentColor: params.accentColor || 'cyan',
+        density: params.density || 'comfortable',
+        reducedMotion: params.reducedMotion || false,
+        dashboardLayout: params.dashboardLayout || {},
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      store.userPreferences.set(key, rec);
+      return rec;
+    },
+  };
+
+  const graphLayoutRepo: any = {
+    findByWorkspace: async (wksId: string, name = 'Default Graph View') => {
+      const key = `${wksId}:${name}`;
+      return store.graphLayouts.get(key) || null;
+    },
+    saveLayout: async (params: any) => {
+      const key = `${params.workspaceId}:${params.name || 'Default Graph View'}`;
+      const rec = {
+        id: params.id || generateUUIDv7(),
+        workspaceId: params.workspaceId,
+        name: params.name || 'Default Graph View',
+        isDefault: params.isDefault ?? true,
+        positions: params.positions || {},
+        annotations: params.annotations || [],
+        filters: params.filters || {},
+        createdBy: params.createdBy,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      store.graphLayouts.set(key, rec);
+      return rec;
+    },
+  };
+
+  const aiProviderRepo: any = {
+    listByOrganization: async (orgId: string) => {
+      return Array.from(store.aiProviders.values()).filter((p: any) => p.organizationId === orgId);
+    },
+    findById: async (id: string) => store.aiProviders.get(id) || null,
+    create: async (params: any) => {
+      const rec = {
+        ...params,
+        id: params.id || generateUUIDv7(),
+        healthStatus: 'HEALTHY',
+        lastHealthCheckAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      store.aiProviders.set(rec.id, rec);
+      return rec;
+    },
+    updateHealth: async (id: string, status: string, details: any = {}) => {
+      const p = store.aiProviders.get(id);
+      if (p) {
+        p.healthStatus = status;
+        p.healthDetails = details;
+        p.lastHealthCheckAt = new Date().toISOString();
+      }
+    },
+    delete: async (id: string) => store.aiProviders.delete(id),
+  };
+
+  const aiRecommendationRepo: any = {
+    listByWorkspace: async (wksId: string) => {
+      return Array.from(store.aiRecommendations.values())
+        .filter((r: any) => r.workspaceId === wksId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
+    findById: async (id: string, wksId: string) => {
+      const r = store.aiRecommendations.get(id);
+      return r && r.workspaceId === wksId ? r : null;
+    },
+    create: async (params: any) => {
+      const rec = {
+        ...params,
+        id: params.id || generateUUIDv7(),
+        status: 'PENDING',
+        executionId: null,
+        approvedBy: null,
+        approvedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      store.aiRecommendations.set(rec.id, rec);
+      return rec;
+    },
+    updateStatus: async (id: string, wksId: string, status: string, updates: any = {}) => {
+      const r = store.aiRecommendations.get(id);
+      if (!r || r.workspaceId !== wksId) return null;
+      r.status = status;
+      if (updates.approvedBy) {
+        r.approvedBy = updates.approvedBy;
+        r.approvedAt = new Date().toISOString();
+      }
+      if (updates.executionId) r.executionId = updates.executionId;
+      r.updatedAt = new Date().toISOString();
+      return r;
+    },
+  };
+
+  const reportRepo: any = {
+    listByWorkspace: async (wksId: string) => {
+      return Array.from(store.reports.values())
+        .filter((rep: any) => rep.workspaceId === wksId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
+    findById: async (id: string, wksId: string) => {
+      const rep = store.reports.get(id);
+      return rep && rep.workspaceId === wksId ? rep : null;
+    },
+    create: async (params: any) => {
+      const rec = {
+        ...params,
+        id: params.id || generateUUIDv7(),
+        status: params.status || 'COMPLETED',
+        version: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      store.reports.set(rec.id, rec);
+      return rec;
+    },
+  };
+
+  const threatIntelRepo: any = {
+    findByCveId: async (cveId: string) => store.threatIntel.get(cveId) || null,
+    listRecent: async () => Array.from(store.threatIntel.values()),
+    upsert: async (record: any) => {
+      const rec = { ...record, lastSyncedAt: new Date().toISOString() };
+      store.threatIntel.set(record.cveId, rec);
+      return rec;
+    },
+  };
+
   return {
     orgRepo,
     userRepo,
@@ -544,6 +707,12 @@ function createInMemoryRepositories(store: InMemoryStore) {
     executionRepo,
     scopeRepo,
     auditRepo,
+    userPreferencesRepo,
+    graphLayoutRepo,
+    aiProviderRepo,
+    aiRecommendationRepo,
+    reportRepo,
+    threatIntelRepo,
   };
 }
 
@@ -852,7 +1021,15 @@ function attachStaticWebConsoleHandler(server: IngressServer) {
   });
 }
 
-export async function startStandaloneServer(customPort?: number): Promise<{
+export interface StandaloneServerOptions {
+  requirePostgres?: boolean;
+  forceMemory?: boolean;
+}
+
+export async function startStandaloneServer(
+  customPort?: number,
+  options?: StandaloneServerOptions
+): Promise<{
   server: IngressServer;
   port: number;
   url: string;
@@ -890,38 +1067,76 @@ export async function startStandaloneServer(customPort?: number): Promise<{
   const signerSecret = process.env.SHN_SIGNER_SECRET || 'shn-sovereign-signer-secret-key-32b!';
   const signer = new SecurityContextSigner(signerSecret);
 
+  const isProduction = process.env.NODE_ENV === 'production';
+  const persistenceEngine = (process.env.SHN_PERSISTENCE_ENGINE || '').toLowerCase().trim();
+  const requirePostgres = options?.requirePostgres ?? (
+    isProduction ||
+    process.env.SHN_REQUIRE_POSTGRES === 'true' ||
+    persistenceEngine === 'postgres'
+  );
+  const forceMemory = !isProduction && (options?.forceMemory ?? (persistenceEngine === 'memory'));
+
   let pool: DatabasePool | undefined;
   let isPostgres = false;
 
-  const dbConfig: DatabaseConfig = {
-    host: process.env.SHN_DB_HOST || '127.0.0.1',
-    port: parseInt(process.env.SHN_DB_PORT || '54329', 10),
-    database: process.env.SHN_DB_NAME || 'shn_test',
-    user: process.env.SHN_DB_USER || 'postgres',
-    password: process.env.SHN_DB_PASSWORD || 'postgres_test_password',
-    ssl: false,
-    maxConnections: 5,
-    minConnections: 1,
-    idleTimeoutMs: 2000,
-    connectionTimeoutMs: 1500,
-  };
+  if (!forceMemory) {
+    const dbConfig: DatabaseConfig = {
+      host: process.env.SHN_DB_HOST || '127.0.0.1',
+      port: parseInt(process.env.SHN_DB_PORT || (isProduction ? '5432' : '54329'), 10),
+      database: process.env.SHN_DB_NAME || (isProduction ? 'shn_primary' : 'shn_test'),
+      user: process.env.SHN_DB_USER || (isProduction ? 'shn_app' : 'postgres'),
+      password: process.env.SHN_DB_PASSWORD || 'postgres_test_password',
+      ssl: process.env.SHN_DB_SSL === 'true',
+      maxConnections: parseInt(process.env.SHN_DB_MAX_CONNECTIONS || (isProduction ? '20' : '10'), 10),
+      minConnections: parseInt(process.env.SHN_DB_MIN_CONNECTIONS || (isProduction ? '4' : '1'), 10),
+      idleTimeoutMs: parseInt(process.env.SHN_DB_IDLE_TIMEOUT_MS || '5000', 10),
+      connectionTimeoutMs: parseInt(process.env.SHN_DB_CONNECTION_TIMEOUT_MS || '5000', 10),
+    };
 
-  try {
-    const testPool = createDatabasePool(dbConfig);
-    const probe = await Promise.race([
-      testPool.query('SELECT 1 as live;'),
-      new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Postgres connection timeout')), 1000)),
-    ]);
-    if (probe && probe.rows.length > 0) {
-      pool = testPool;
-      isPostgres = true;
-      const migrationsDir = path.resolve(process.cwd(), 'packages/data-access/migrations');
-      if (fs.existsSync(migrationsDir)) {
-        await runMigrations(pool, migrationsDir);
+    let testPool: DatabasePool | undefined;
+    try {
+      testPool = createDatabasePool(dbConfig);
+      const probeTimeout = Math.max(dbConfig.connectionTimeoutMs, 3000);
+      const probe = await Promise.race([
+        testPool.query('SELECT 1 as live;'),
+        new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error(`Postgres connection timeout after ${probeTimeout}ms`)), probeTimeout)
+        ),
+      ]);
+      if (probe && probe.rows.length > 0) {
+        pool = testPool;
+        isPostgres = true;
+        const migrationsDir = path.resolve(process.cwd(), 'packages/data-access/migrations');
+        if (fs.existsSync(migrationsDir)) {
+          await runMigrations(pool, migrationsDir);
+        }
+      } else {
+        throw new Error('Postgres probe query returned no rows');
+      }
+    } catch (err) {
+      if (testPool) {
+        await closeDatabasePool(testPool).catch(() => {});
+      }
+      pool = undefined;
+      isPostgres = false;
+
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (requirePostgres) {
+        if (isProduction) {
+          throw new Error(
+            `Production Security Invariant Violation: PostgreSQL persistence is mandatory in production (NODE_ENV=production). Failed to connect to database at ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}: ${errorMessage}`
+          );
+        } else {
+          throw new Error(
+            `Persistence Configuration Error: PostgreSQL persistence is required (SHN_REQUIRE_POSTGRES=true or SHN_PERSISTENCE_ENGINE=postgres), but failed to connect to ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}: ${errorMessage}`
+          );
+        }
+      } else {
+        console.warn(
+          `[!] Warning: Failed to connect to PostgreSQL at ${dbConfig.host}:${dbConfig.port}/${dbConfig.database} (${errorMessage}). Falling back to Sovereign In-Memory Engine.`
+        );
       }
     }
-  } catch {
-    isPostgres = false;
   }
 
   const inMemoryStore: InMemoryStore = {
@@ -939,6 +1154,12 @@ export async function startStandaloneServer(customPort?: number): Promise<{
     executionAttempts: [],
     scopes: new Map(),
     auditEvents: [],
+    userPreferences: new Map(),
+    graphLayouts: new Map(),
+    aiProviders: new Map(),
+    aiRecommendations: new Map(),
+    reports: new Map(),
+    threatIntel: new Map(),
   };
 
   let repos: any;
@@ -955,6 +1176,12 @@ export async function startStandaloneServer(customPort?: number): Promise<{
       executionRepo: new ExecutionRepository(pool),
       scopeRepo: new ScopeRepository(pool),
       auditRepo: new AuditEventRepository(pool),
+      userPreferencesRepo: new UserPreferencesRepository(pool),
+      graphLayoutRepo: new GraphLayoutRepository(pool),
+      aiProviderRepo: new AiProviderRepository(pool),
+      aiRecommendationRepo: new AiRecommendationRepository(pool),
+      reportRepo: new ReportRepository(pool),
+      threatIntelRepo: new ThreatIntelRepository(pool),
     };
     const bootstrap = await bootstrapPostgresSystemIdentity(repos, creds.password);
     if (process.env.NODE_ENV !== 'production' && process.env.SHN_LOAD_DEMO_FIXTURES === 'true') {
@@ -1036,8 +1263,67 @@ export async function startStandaloneServer(customPort?: number): Promise<{
     integrityDigest: 'b1c2d3e4f5a60718293a4b5c6d7e8f90b1c2d3e4f5a60718293a4b5c6d7e8f90',
   });
 
+  await capabilityRegistry.registerCapability({
+    id: createCapabilityId('shn://capabilities/web/tls-inspect').unwrapOr('shn://capabilities/web/tls-inspect' as any),
+    name: 'tls-inspect',
+    version: '1.0.0',
+    displayName: 'TLS/SSL Certificate Inspector',
+    description: 'Inspects TLS certificate validity, cipher suites, SAN extensions, and expiration.',
+    category: 'DISCOVERY',
+    riskLevel: 'INFORMATIONAL',
+    supportedTargets: ['URL', 'DOMAIN', 'HOST'],
+    requiredPermissions: 1,
+    requiredScopeAction: 'recon:passive',
+    argumentSchema: {
+      type: 'object',
+      properties: {
+        timeoutMs: { type: 'number', default: 15000 },
+      },
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        isSecure: { type: 'boolean' },
+        protocol: { type: 'string' },
+      },
+    },
+    platformCompatibility: ['linux', 'darwin', 'win32'],
+    lifecycleState: 'ACTIVE',
+    integrityDigest: 'c1d2e3f4a5b60718293a4b5c6d7e8f90c1d2e3f4a5b60718293a4b5c6d7e8f90',
+  });
+
+  await capabilityRegistry.registerCapability({
+    id: createCapabilityId('shn://capabilities/recon/dns-lookup').unwrapOr('shn://capabilities/recon/dns-lookup' as any),
+    name: 'dns-lookup',
+    version: '1.0.0',
+    displayName: 'DNS Reconnaissance & Record Enumeration',
+    description: 'Resolves domain DNS records (A, AAAA, MX, TXT, NS, CNAME) for target asset correlation.',
+    category: 'RECONNAISSANCE',
+    riskLevel: 'INFORMATIONAL',
+    supportedTargets: ['DOMAIN', 'HOST', 'IP'],
+    requiredPermissions: 1,
+    requiredScopeAction: 'recon:passive',
+    argumentSchema: {
+      type: 'object',
+      properties: {
+        recordType: { type: 'string', default: 'A' },
+      },
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        resolvedAddresses: { type: 'array', items: { type: 'string' } },
+      },
+    },
+    platformCompatibility: ['linux', 'darwin', 'win32'],
+    lifecycleState: 'ACTIVE',
+    integrityDigest: 'd1e2f3a4b5c60718293a4b5c6d7e8f90d1e2f3a4b5c6d7e8f90d1e2f3a4b5c607',
+  });
+
   await capabilityRegistry.registerAdapter(new NetworkPortScanAdapter());
   await capabilityRegistry.registerAdapter(new HttpDiscoveryAdapter());
+  await capabilityRegistry.registerAdapter(new TlsInspectAdapter());
+  await capabilityRegistry.registerAdapter(new DnsReconAdapter());
 
   const tenancyValidator = new TenancyValidator(repos.workspaceRepo);
   const scopeSecret = process.env.SHN_SCOPE_SIGNER_SECRET || 'shn-sovereign-scope-secret-key-32b!!';
@@ -1079,6 +1365,12 @@ export async function startStandaloneServer(customPort?: number): Promise<{
       executionRepo: repos.executionRepo,
       scopeRepo: repos.scopeRepo,
       auditRepo: repos.auditRepo,
+      userPreferencesRepo: repos.userPreferencesRepo,
+      graphLayoutRepo: repos.graphLayoutRepo,
+      aiProviderRepo: repos.aiProviderRepo,
+      aiRecommendationRepo: repos.aiRecommendationRepo,
+      reportRepo: repos.reportRepo,
+      threatIntelRepo: repos.threatIntelRepo,
       assetService,
       findingService,
       capabilityRegistry,
@@ -1109,7 +1401,7 @@ SHADOW : HELIX NEBULA (SHN) — SOVEREIGN CYBERSECURITY PLATFORM
 [+] Platform Health Probes:  ${url}/health/live  |  ${url}/health/ready
 [+] Prometheus Metrics:      ${url}/metrics
 [+] Persistence Engine:      ${isPostgres ? 'PostgreSQL (Active)' : 'Sovereign In-Memory Engine (Active)'}
-[+] Sovereign Operator:      ${process.env.SHN_INITIAL_ADMIN_EMAIL || 'operator@shn.sovereign'}
+${isPostgres ? `[+] Database Target:         ${process.env.SHN_DB_HOST || '127.0.0.1'}:${process.env.SHN_DB_PORT || '54329'}/${process.env.SHN_DB_NAME || 'shn_test'}\n` : ''}[+] Sovereign Operator:      ${process.env.SHN_INITIAL_ADMIN_EMAIL || 'operator@shn.sovereign'}
 [+] Credential Provisioning: ${creds.notice}
 [+] Operational State:       Authoritative Truth (0 Fabricated Records)
 [+] Security Status:         Active (Zero-Trust Identity & Tenancy Hardened)

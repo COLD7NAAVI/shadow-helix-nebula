@@ -65,6 +65,8 @@ export {
 export { BaseToolAdapter } from './adapters/base-tool-adapter.js';
 export { NetworkPortScanAdapter } from './adapters/reference/network-port-scan-adapter.js';
 export { HttpDiscoveryAdapter } from './adapters/reference/http-discovery-adapter.js';
+export { TlsInspectAdapter } from './adapters/reference/tls-inspect-adapter.js';
+export { DnsReconAdapter } from './adapters/reference/dns-recon-adapter.js';
 
 // Capability Execution Dispatcher & Gateway
 export {

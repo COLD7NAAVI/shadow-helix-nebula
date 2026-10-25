@@ -177,3 +177,43 @@ export {
   type ListFindingOptions,
   type TransitionStatusParams,
 } from './repositories/finding-repository.js';
+
+export {
+  UserPreferencesRepository,
+  type UserPreferencesRecord,
+  type SaveUserPreferencesParams,
+} from './repositories/user-preferences-repository.js';
+
+export {
+  GraphLayoutRepository,
+  type GraphLayoutRecord,
+  type SaveGraphLayoutParams,
+} from './repositories/graph-layout-repository.js';
+
+export {
+  AiProviderRepository,
+  type AiProviderRecord,
+  type CreateAiProviderParams,
+  type AiProviderType,
+  type AiHealthStatus,
+} from './repositories/ai-provider-repository.js';
+
+export {
+  AiRecommendationRepository,
+  type AiRecommendationRecord,
+  type CreateAiRecommendationParams,
+  type RecommendationStatus,
+} from './repositories/ai-recommendation-repository.js';
+
+export {
+  ReportRepository,
+  type ReportRecord,
+  type CreateReportParams,
+  type ReportType,
+  type ReportStatus,
+} from './repositories/report-repository.js';
+
+export {
+  ThreatIntelRepository,
+  type VulnerabilityRecord,
+} from './repositories/threat-intel-repository.js';

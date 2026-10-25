@@ -21,11 +21,12 @@ import {
   type DatabaseConfig,
 } from '../dist/index.js';
 
-export function getTestDatabaseConfig(dbName: string = 'shn_test'): DatabaseConfig {
+export function getTestDatabaseConfig(dbName: string = 'shn_test_isolated'): DatabaseConfig {
+  const targetDb = dbName === 'shn_test' ? 'shn_test_isolated' : (process.env.SHN_TEST_DB_NAME || dbName);
   return {
     host: process.env.SHN_TEST_DB_HOST || '127.0.0.1',
     port: parseInt(process.env.SHN_TEST_DB_PORT || '54329', 10),
-    database: process.env.SHN_TEST_DB_NAME || dbName,
+    database: targetDb,
     user: process.env.SHN_TEST_DB_USER || 'postgres',
     password: process.env.SHN_TEST_DB_PASSWORD || undefined,
     ssl: false,
@@ -51,11 +52,16 @@ export async function ensureDatabase(dbName: string): Promise<void> {
   }
 }
 
-export function createTestPool(dbName: string = 'shn_test'): DatabasePool {
+export function createTestPool(dbName: string = 'shn_test_isolated'): DatabasePool {
   return createDatabasePool(getTestDatabaseConfig(dbName));
 }
 
 export async function resetDatabase(pool: DatabasePool): Promise<void> {
+  const dbRes = await pool.query<{ current_database: string }>('SELECT current_database();');
+  const currentDb = dbRes.rows[0]?.current_database;
+  if (!currentDb || currentDb === 'shn_test' || currentDb === 'shn_primary' || currentDb === 'postgres') {
+    throw new Error(`SAFETY INVARIANT VIOLATION: resetDatabase is strictly prohibited from running against live/system database '${currentDb}'!`);
+  }
   await pool.query('DROP SCHEMA IF EXISTS findings CASCADE;');
   await pool.query('DROP SCHEMA IF EXISTS inventory CASCADE;');
   await pool.query('DROP SCHEMA IF EXISTS capabilities CASCADE;');
