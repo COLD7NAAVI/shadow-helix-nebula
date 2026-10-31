@@ -570,10 +570,15 @@ export class AppShell {
     `;
 
     dropdown.querySelectorAll<HTMLElement>('.ws-switch-item').forEach((item) => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', async () => {
         const id = item.dataset.wsId;
         if (id) {
-          this.workspaceStore.setActiveWorkspace(id);
+          const currentWks = this.workspaceStore.getActiveWorkspace();
+          if (currentWks?.id === id) {
+            this.closeAllMenus();
+            return;
+          }
+          await this.workspaceStore.setActiveWorkspace(id);
           this.closeAllMenus();
           const current = this.router.getCurrentRoute();
           this.mountView(current.route);

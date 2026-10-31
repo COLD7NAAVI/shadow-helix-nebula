@@ -73,8 +73,8 @@ describe('Ingress Gateway & CLI End-to-End (Integration)', () => {
     const signer = new SecurityContextSigner(signerSecret);
     const tenancyValidator = new TenancyValidator(workspaceRepo);
     const scopeGatekeeper = new ScopeGatekeeper({
-      scopeRepository: scopeRepo,
-      signerSecret: 'shn-test-scope-secret-key-32b!!',
+      scopeRepo,
+      workspaceRepo,
     });
 
     const assetService = new AssetInventoryService({ assetRepository: assetRepo });
@@ -84,11 +84,32 @@ describe('Ingress Gateway & CLI End-to-End (Integration)', () => {
     });
 
     const capabilityRegistry = new CapabilityRegistry({ repository: capabilityRepo });
-    const executionSupervisor = new ExecutionSupervisor({ repository: executionRepo });
+    const executionSupervisor = new ExecutionSupervisor({
+      repository: executionRepo,
+      authSigner: signer,
+      gatekeeper: scopeGatekeeper,
+    });
 
     // Register reference tool adapters
     await capabilityRegistry.registerAdapter(new NetworkPortScanAdapter());
     await capabilityRegistry.registerAdapter(new HttpDiscoveryAdapter());
+
+    await capabilityRepo.registerCapability({
+      id: 'shn://capabilities/web/http-discovery',
+      name: 'http-discovery',
+      version: '1.0.0',
+      displayName: 'HTTP Service & Header Fingerprinting',
+      description: 'HTTP endpoint discovery',
+      category: 'DISCOVERY',
+      riskLevel: 'LOW',
+      supportedTargets: ['URL', 'DOMAIN', 'HOST'],
+      requiredPermissions: 1,
+      requiredScopeAction: 'http:probe',
+      argumentSchema: {},
+      outputSchema: {},
+      platformCompatibility: ['linux', 'darwin', 'win32'],
+      integrityDigest: 'a'.repeat(64),
+    });
 
     const capabilityDispatcher = new CapabilityDispatcher({
       registry: capabilityRegistry,
@@ -416,5 +437,175 @@ describe('Ingress Gateway & CLI End-to-End (Integration)', () => {
     const persistedDirect = await directRepo.findActiveByWorkspace(primaryWorkspaceId as any);
     assert.strictEqual(persistedDirect.length, 1);
     assert.strictEqual(persistedDirect[0].id, createdScope.id);
+  });
+
+  it('10. Switch workspace endpoint mints new token bound to target workspace and authorizes requests', async () => {
+    // 1. Switch context from primary to foreign workspace
+    const switchRes = await fetch(`${serverUrl}/api/v1/auth/switch-workspace`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ workspaceId: foreignWorkspaceId }),
+    });
+    assert.strictEqual(switchRes.status, 200, 'Switch workspace must return 200 OK');
+    const switchData = await switchRes.json();
+    assert.strictEqual(switchData.workspaceId, foreignWorkspaceId);
+    assert.ok(switchData.token, 'Must receive newly signed token for foreign workspace');
+    const foreignToken = switchData.token;
+
+    // 2. Query foreign workspace with new token: must succeed (no 404 anti-IDOR)
+    const foreignListRes = await fetch(`${serverUrl}/api/v1/workspaces/${foreignWorkspaceId}/scopes`, {
+      headers: { Authorization: `Bearer ${foreignToken}` },
+    });
+    assert.strictEqual(foreignListRes.status, 200, 'Foreign workspace must now be accessible');
+
+    // 3. Query primary workspace with foreign token: must fail closed with 404 anti-IDOR
+    const primaryWithForeignRes = await fetch(`${serverUrl}/api/v1/workspaces/${primaryWorkspaceId}/scopes`, {
+      headers: { Authorization: `Bearer ${foreignToken}` },
+    });
+    assert.strictEqual(primaryWithForeignRes.status, 404, 'Accessing primary workspace with foreign token must return 404');
+
+    // 4. Test token refresh maintains active workspace context
+    const refreshRes = await fetch(`${serverUrl}/api/v1/auth/refresh`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${foreignToken}` },
+    });
+    assert.strictEqual(refreshRes.status, 200, 'Refresh must succeed');
+    const refreshData = await refreshRes.json();
+    assert.strictEqual(refreshData.workspaceId, foreignWorkspaceId);
+    assert.ok(refreshData.token);
+  });
+
+  it('11. Asset registration in switched workspace succeeds with canonicalized target and alias types', async () => {
+    // Switch to foreign workspace
+    const switchRes = await fetch(`${serverUrl}/api/v1/auth/switch-workspace`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ workspaceId: foreignWorkspaceId }),
+    });
+    const foreignToken = (await switchRes.json()).token;
+
+    // Register asset using type alias 'IPV4_ADDRESS'
+    const regRes = await fetch(`${serverUrl}/api/v1/workspaces/${foreignWorkspaceId}/assets`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${foreignToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        rawTarget: '127.0.0.1',
+        name: 'OWASP Juice Shop — Local Docker',
+        type: 'IPV4_ADDRESS',
+        criticality: 'LOW',
+        tags: ['training', 'docker', 'owasp', 'juice-shop', 'local-lab'],
+      }),
+    });
+    assert.strictEqual(regRes.status, 201, 'Asset registration must return 201');
+    const asset = await regRes.json();
+    assert.strictEqual(asset.canonicalValue, '127.0.0.1');
+    assert.strictEqual(asset.type, 'IPV4');
+    assert.strictEqual(asset.workspaceId, foreignWorkspaceId);
+
+    // Verify asset appears in foreign workspace list
+    const listRes = await fetch(`${serverUrl}/api/v1/workspaces/${foreignWorkspaceId}/assets`, {
+      headers: { Authorization: `Bearer ${foreignToken}` },
+    });
+    assert.strictEqual(listRes.status, 200);
+    const list = await listRes.json();
+    assert.ok(list.some((a: any) => a.canonicalValue === '127.0.0.1'));
+
+    // Verify isolation: asset does NOT appear in primary workspace
+    const primaryListRes = await fetch(`${serverUrl}/api/v1/workspaces/${primaryWorkspaceId}/assets`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    const primaryList = await primaryListRes.json();
+    assert.ok(!primaryList.some((a: any) => a.canonicalValue === '127.0.0.1'));
+  });
+
+  it('12. Scope containment allows authorized local port probe and denies out-of-bounds targets', async () => {
+    const switchRes = await fetch(`${serverUrl}/api/v1/auth/switch-workspace`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ workspaceId: foreignWorkspaceId }),
+    });
+    const foreignToken = (await switchRes.json()).token;
+
+    // Define narrow scope policy for port 3000
+    const createScopeRes = await fetch(`${serverUrl}/api/v1/workspaces/${foreignWorkspaceId}/scopes`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${foreignToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'Juice Shop Narrow Scope',
+        description: 'Authorized local testing on port 3000',
+        inclusions: [{ type: 'IPV4', value: '127.0.0.1' }],
+        exclusions: [],
+        allowedActions: ['RECON_PASSIVE', 'PROBING_ACTIVE', 'PORT_SCAN'],
+        portRanges: [{ start: 3000, end: 3000 }],
+      }),
+    });
+    assert.strictEqual(createScopeRes.status, 201);
+    const scope = await createScopeRes.json();
+
+    // 1. Authorized execution against port 3000
+    const execRes = await fetch(`${serverUrl}/api/v1/workspaces/${foreignWorkspaceId}/executions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${foreignToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        capabilityId: 'shn://capabilities/web/http-discovery',
+        target: 'http://127.0.0.1:3000',
+        port: 3000,
+        scopeId: scope.id,
+      }),
+    });
+    const execBody = await execRes.text();
+    assert.strictEqual(execRes.status, 200, `Execution failed: ${execBody}`);
+    const execResult = JSON.parse(execBody);
+    assert.ok(execResult.executionId);
+
+    // 2. Out-of-bounds port (8080) must be rejected
+    const portDenyRes = await fetch(`${serverUrl}/api/v1/workspaces/${foreignWorkspaceId}/executions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${foreignToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        capabilityId: 'shn://capabilities/web/http-discovery',
+        target: 'http://127.0.0.1:8080',
+        port: 8080,
+        scopeId: scope.id,
+      }),
+    });
+    assert.strictEqual(portDenyRes.status, 403, 'Port outside authorized range must be rejected with 403');
+
+    // 3. Cloud metadata (169.254.169.254) must be permanently blocked
+    const metaDenyRes = await fetch(`${serverUrl}/api/v1/workspaces/${foreignWorkspaceId}/executions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${foreignToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        capabilityId: 'shn://capabilities/web/http-discovery',
+        target: 'http://169.254.169.254',
+        port: 80,
+        scopeId: scope.id,
+      }),
+    });
+    assert.strictEqual(metaDenyRes.status, 403, 'Cloud metadata must be rejected with 403 under SEC-INV-08');
   });
 });

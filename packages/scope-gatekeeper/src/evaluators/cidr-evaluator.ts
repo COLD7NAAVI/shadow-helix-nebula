@@ -267,20 +267,17 @@ export function parseCidrBlock(cidr: string): Result<ParsedCidr, string> {
 
 // --- Blacklist / SSRF / Cloud Metadata Checks ---
 
-const PROHIBITED_EXACT_IPV4 = new Set<number>([
+const CLOUD_METADATA_EXACT_IPV4 = new Set<number>([
   0xa9fea9fe, // 169.254.169.254 (AWS / Azure / GCP IMDS)
   0x646464c8, // 100.100.100.200 (Alibaba Cloud IMDS)
-  0x7f000001, // 127.0.0.1
   0x00000000, // 0.0.0.0
   0xffffffff, // 255.255.255.255
 ]);
 
-export function isProhibitedIPv4(ipNum: number): boolean {
+export function isCloudMetadataIPv4(ipNum: number): boolean {
   const u = ipNum >>> 0;
-  if (PROHIBITED_EXACT_IPV4.has(u)) return true;
+  if (CLOUD_METADATA_EXACT_IPV4.has(u)) return true;
 
-  // 127.0.0.0/8 (Loopback)
-  if (((u & 0xff000000) >>> 0) === 0x7f000000) return true;
   // 169.254.0.0/16 (Link-local)
   if (((u & 0xffff0000) >>> 0) === 0xa9fe0000) return true;
   // 0.0.0.0/8 (Current network)
@@ -291,8 +288,19 @@ export function isProhibitedIPv4(ipNum: number): boolean {
   return false;
 }
 
-export function isProhibitedIPv6(ipNum: bigint): boolean {
-  if (ipNum === 1n) return true; // ::1 (Loopback)
+export function isLoopbackIPv4(ipNum: number): boolean {
+  const u = ipNum >>> 0;
+  if (u === 0x7f000001) return true; // 127.0.0.1
+  // 127.0.0.0/8 (Loopback)
+  if (((u & 0xff000000) >>> 0) === 0x7f000000) return true;
+  return false;
+}
+
+export function isProhibitedIPv4(ipNum: number): boolean {
+  return isCloudMetadataIPv4(ipNum) || isLoopbackIPv4(ipNum);
+}
+
+export function isCloudMetadataIPv6(ipNum: bigint): boolean {
   if (ipNum === 0n) return true; // :: (Unspecified)
 
   // AWS IMDSv6: fd00:ec2::254
@@ -313,7 +321,15 @@ export function isProhibitedIPv6(ipNum: bigint): boolean {
   return false;
 }
 
-export function isBlacklistedIpOrCidr(target: string): boolean {
+export function isLoopbackIPv6(ipNum: bigint): boolean {
+  return ipNum === 1n; // ::1 (Loopback)
+}
+
+export function isProhibitedIPv6(ipNum: bigint): boolean {
+  return isCloudMetadataIPv6(ipNum) || isLoopbackIPv6(ipNum);
+}
+
+export function isCloudMetadataIpOrCidr(target: string): boolean {
   const trimmed = target.trim();
   const slashIdx = trimmed.indexOf('/');
   const ipOnly = slashIdx === -1 ? trimmed : trimmed.substring(0, slashIdx);
@@ -321,16 +337,40 @@ export function isBlacklistedIpOrCidr(target: string): boolean {
   if (ipOnly.includes('.')) {
     const parsed = parseIPv4Address(ipOnly);
     if (parsed.isOk) {
-      return isProhibitedIPv4(parsed.value);
+      return isCloudMetadataIPv4(parsed.value);
     }
   } else {
     const parsed = parseIPv6Address(ipOnly);
     if (parsed.isOk) {
-      return isProhibitedIPv6(parsed.value);
+      return isCloudMetadataIPv6(parsed.value);
     }
   }
 
   return false;
+}
+
+export function isLoopbackIpOrCidr(target: string): boolean {
+  const trimmed = target.trim();
+  const slashIdx = trimmed.indexOf('/');
+  const ipOnly = slashIdx === -1 ? trimmed : trimmed.substring(0, slashIdx);
+
+  if (ipOnly.includes('.')) {
+    const parsed = parseIPv4Address(ipOnly);
+    if (parsed.isOk) {
+      return isLoopbackIPv4(parsed.value);
+    }
+  } else {
+    const parsed = parseIPv6Address(ipOnly);
+    if (parsed.isOk) {
+      return isLoopbackIPv6(parsed.value);
+    }
+  }
+
+  return false;
+}
+
+export function isBlacklistedIpOrCidr(target: string): boolean {
+  return isCloudMetadataIpOrCidr(target) || isLoopbackIpOrCidr(target);
 }
 
 // --- Containment Evaluation ---

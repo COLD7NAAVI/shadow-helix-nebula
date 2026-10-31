@@ -66,6 +66,52 @@ export class ApiClient {
     return 'req-' + Math.random().toString(36).substring(2, 10) + '-' + Date.now();
   }
 
+  private activeRefreshPromise: Promise<string | null> | null = null;
+
+  async refreshAuthToken(): Promise<string | null> {
+    if (this.activeRefreshPromise) {
+      return this.activeRefreshPromise;
+    }
+
+    this.activeRefreshPromise = (async () => {
+      try {
+        const token = this.getToken();
+        if (!token) return null;
+
+        const res = await fetch(`${this.baseUrl}/api/v1/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'X-Correlation-ID': this.generateCorrelationId(),
+          },
+        });
+
+        if (!res.ok) {
+          if (res.status === 401 && this.onUnauthorized) {
+            this.onUnauthorized();
+          }
+          return null;
+        }
+
+        const data: LoginResponse = await res.json();
+        if (data && data.token && typeof localStorage !== 'undefined') {
+          localStorage.setItem('shn_auth_token', data.token);
+          localStorage.setItem('shn_active_workspace_id', data.workspaceId);
+          localStorage.setItem('shn_auth_roles', JSON.stringify(data.roles));
+          return data.token;
+        }
+        return null;
+      } catch {
+        return null;
+      } finally {
+        this.activeRefreshPromise = null;
+      }
+    })();
+
+    return this.activeRefreshPromise;
+  }
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const headers = new Headers(options.headers);
@@ -90,6 +136,19 @@ export class ApiClient {
       });
 
       if (response.status === 401) {
+        if (!endpoint.includes('/api/v1/auth/')) {
+          const refreshedToken = await this.refreshAuthToken();
+          if (refreshedToken) {
+            headers.set('Authorization', `Bearer ${refreshedToken}`);
+            const retryRes = await fetch(url, { ...options, headers });
+            if (retryRes.ok) {
+              if (retryRes.status === 204) return null as unknown as T;
+              const ct = retryRes.headers.get('content-type') || '';
+              if (ct.includes('application/json')) return (await retryRes.json()) as T;
+              return (await retryRes.text()) as unknown as T;
+            }
+          }
+        }
         if (this.onUnauthorized) this.onUnauthorized();
       }
 
@@ -142,7 +201,7 @@ export class ApiClient {
   }
 
   // Auth & Identity
-  async login(credentials: { email: string; password: string; workspaceId?: string }): Promise<LoginResponse> {
+  async login(credentials: { email: string; password: string; workspaceId?: string | undefined }): Promise<LoginResponse> {
     return this.request<LoginResponse>('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
@@ -163,6 +222,19 @@ export class ApiClient {
 
   async getMe(): Promise<{ actor: any; workspaceId: string; securityContext: any }> {
     return this.request('/api/v1/auth/me');
+  }
+
+  async switchWorkspace(workspaceId: string): Promise<LoginResponse> {
+    return this.request<LoginResponse>('/api/v1/auth/switch-workspace', {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId }),
+    });
+  }
+
+  async refreshSession(): Promise<LoginResponse> {
+    return this.request<LoginResponse>('/api/v1/auth/refresh', {
+      method: 'POST',
+    });
   }
 
   // Workspaces

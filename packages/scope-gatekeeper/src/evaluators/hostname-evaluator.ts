@@ -12,9 +12,7 @@
 
 import { ok, err, type Result } from '@shn/shared-kernel';
 
-const PROHIBITED_HOSTNAMES = new Set([
-  'localhost',
-  'localhost.localdomain',
+const CLOUD_METADATA_HOSTNAMES = new Set([
   'metadata.google.internal',
   'metadata.internal',
   'instance-data',
@@ -22,14 +20,29 @@ const PROHIBITED_HOSTNAMES = new Set([
   '100.100.100.200',
 ]);
 
+const LOOPBACK_HOSTNAMES = new Set([
+  'localhost',
+  'localhost.localdomain',
+]);
+
 const LABEL_REGEX = /^(?!-)[a-z0-9-_]{1,63}(?<!-)$/; // Allow RFC-compliant alphanumeric with interior hyphens
 
-export function isBlacklistedHostname(hostname: string): boolean {
+export function isCloudMetadataHostname(hostname: string): boolean {
   const normalized = hostname.trim().toLowerCase().replace(/\.+$/, '');
-  if (PROHIBITED_HOSTNAMES.has(normalized)) return true;
-  if (normalized.endsWith('.localhost')) return true;
+  if (CLOUD_METADATA_HOSTNAMES.has(normalized)) return true;
   if (normalized === 'metadata' || normalized.endsWith('.metadata.google.internal')) return true;
   return false;
+}
+
+export function isLoopbackHostname(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase().replace(/\.+$/, '');
+  if (LOOPBACK_HOSTNAMES.has(normalized)) return true;
+  if (normalized.endsWith('.localhost')) return true;
+  return false;
+}
+
+export function isBlacklistedHostname(hostname: string): boolean {
+  return isCloudMetadataHostname(hostname) || isLoopbackHostname(hostname);
 }
 
 export function canonicalizeHostname(rawHost: string): Result<string, string> {

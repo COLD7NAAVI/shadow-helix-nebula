@@ -18,10 +18,14 @@ export function renderWorkspacesView(
   let verificationTarget = '';
   let verificationVerdict: { status: 'AUTHORIZED' | 'DENIED' | null; reason: string } | null = null;
 
-  const currentWks = deps.workspaceStore.getState().activeWorkspace;
-
   async function loadData() {
-    if (!currentWks) return;
+    const currentWks = deps.workspaceStore.getActiveWorkspace();
+    if (!currentWks) {
+      scopes = [];
+      isLoading = false;
+      render();
+      return;
+    }
     isLoading = true;
     render();
 
@@ -63,12 +67,18 @@ export function renderWorkspacesView(
     const trimmed = target.trim();
     if (!trimmed) return { status: 'DENIED', reason: 'Target cannot be empty' };
 
-    // SEC-INV-08: Always block cloud metadata and loopback
+    // SEC-INV-08: Always block cloud metadata
     if (trimmed.includes('169.254.169.254') || trimmed.includes('metadata.google.internal')) {
       return { status: 'DENIED', reason: 'Blocked: Cloud Metadata Protection (SEC-INV-08)' };
     }
+    // Block loopback unless explicitly included in active scope
     if (trimmed.startsWith('127.') || trimmed.includes('localhost') || trimmed === '::1') {
-      return { status: 'DENIED', reason: 'Blocked: Loopback Address Containment (SEC-INV-08)' };
+      const isExplicitlyAuthorized = scopes.some((s) =>
+        (s.inclusions || []).some((inc) => inc.value.includes('127.0.0.1') || inc.value.includes('localhost') || inc.value === '::1')
+      );
+      if (!isExplicitlyAuthorized) {
+        return { status: 'DENIED', reason: 'Blocked: Loopback Address Containment (SEC-INV-08)' };
+      }
     }
 
     if (scopes.length === 0) {
@@ -115,6 +125,7 @@ export function renderWorkspacesView(
   function render() {
     const wksState = deps.workspaceStore.getState();
     const allWorkspaces = wksState.workspaces;
+    const activeWks = deps.workspaceStore.getActiveWorkspace();
 
     container.innerHTML = `
       <div class="content-viewport">
@@ -154,12 +165,12 @@ export function renderWorkspacesView(
                   <tr>
                     <td>
                       <strong style="color:var(--text-primary);">${w.name}</strong>
-                      ${w.id === currentWks?.id ? '<span class="badge badge-active" style="margin-left:8px;">Active</span>' : ''}
+                      ${w.id === activeWks?.id ? '<span class="badge badge-active" style="margin-left:8px;">Active</span>' : ''}
                     </td>
                     <td style="font-family:var(--font-mono);font-size:12px;">${w.slug}</td>
                     <td><span class="badge badge-active">PROVISIONED</span></td>
                     <td>
-                      ${w.id !== currentWks?.id ? `
+                      ${w.id !== activeWks?.id ? `
                         <button class="btn btn-secondary btn-sm btn-switch-wks" data-wks-id="${w.id}">
                           Switch Context
                         </button>
@@ -334,12 +345,20 @@ export function renderWorkspacesView(
 
     // Bindings
     container.querySelectorAll('.btn-switch-wks').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         const id = (e.currentTarget as HTMLElement).getAttribute('data-wks-id');
         if (id) {
-          deps.workspaceStore.setActiveWorkspace(id);
-          deps.notify.success('Switched active workspace', 'Context Updated');
-          loadData();
+          const current = deps.workspaceStore.getActiveWorkspace();
+          if (current?.id === id) return;
+          try {
+            const switched = await deps.workspaceStore.setActiveWorkspace(id);
+            if (switched) {
+              deps.notify.success('Switched active workspace', 'Context Updated');
+              await loadData();
+            }
+          } catch (err: any) {
+            deps.notify.error(err.message || 'Failed to switch workspace');
+          }
         }
       });
     });
@@ -383,20 +402,35 @@ export function renderWorkspacesView(
     // Handle Create Scope Submit
     container.querySelector('#form-create-scope')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (!currentWks) return;
+      const activeWks = deps.workspaceStore.getActiveWorkspace();
+      if (!activeWks) {
+        deps.notify.error('No active workspace selected.');
+        return;
+      }
       const name = (container.querySelector('#scope-name') as HTMLInputElement).value.trim();
       const desc = (container.querySelector('#scope-desc') as HTMLInputElement).value.trim();
       const incStr = (container.querySelector('#scope-inclusions') as HTMLInputElement).value.trim();
+      const portStr = (container.querySelector('#scope-ports') as HTMLInputElement)?.value.trim() || '1-65535';
+
       const inclusions = incStr.split(',').map((s) => s.trim()).filter(Boolean).map((v) => ({
         type: v.includes('/') ? 'CIDR' : v.includes('://') ? 'URL' : v.includes('.') ? 'IPV4' : 'DOMAIN',
         value: v,
       }));
 
+      const [startStr, endStr] = portStr.split('-');
+      const pStart = parseInt(startStr || '1', 10);
+      const pEnd = parseInt(endStr || startStr || '65535', 10);
+      const port_ranges = [{
+        start: isNaN(pStart) ? 1 : pStart,
+        end: isNaN(pEnd) ? 65535 : pEnd,
+      }];
+
       try {
-        await deps.api.createScope(currentWks.id, {
+        await deps.api.createScope(activeWks.id, {
           name,
           description: desc,
           inclusions,
+          port_ranges,
         });
         deps.notify.success(`Scope policy "${name}" created`, 'Scope Enforced');
         showCreateScopeModal = false;

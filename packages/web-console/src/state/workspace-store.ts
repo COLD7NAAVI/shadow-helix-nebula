@@ -62,7 +62,12 @@ export class WorkspaceStore {
 
       this.state.activeWorkspace = found;
       if (found && found.id !== currentWksId) {
-        this.authStore.setActiveWorkspace(found.id);
+        try {
+          const switchRes = await this.api.switchWorkspace(found.id);
+          this.authStore.updateWorkspaceSession(switchRes);
+        } catch {
+          this.authStore.setActiveWorkspace(found.id);
+        }
       }
       this.state.loading = false;
       this.notify();
@@ -73,20 +78,32 @@ export class WorkspaceStore {
     }
   }
 
-  setActiveWorkspace(workspaceId: string): void {
+  async setActiveWorkspace(workspaceId: string): Promise<boolean> {
     const found = this.state.workspaces.find((w) => w.id === workspaceId);
-    if (found) {
-      this.state.activeWorkspace = found;
-      this.authStore.setActiveWorkspace(found.id);
-      this.notify();
+    if (!found) return false;
+
+    try {
+      const switchRes = await this.api.switchWorkspace(workspaceId);
+      this.authStore.updateWorkspaceSession(switchRes);
+    } catch {
+      this.authStore.setActiveWorkspace(workspaceId);
     }
+
+    this.state.activeWorkspace = found;
+    this.notify();
+    return true;
   }
 
   async createWorkspace(name: string): Promise<Workspace> {
     const created = await this.api.createWorkspace({ name });
     this.state.workspaces = [...this.state.workspaces, created];
     this.state.activeWorkspace = created;
-    this.authStore.setActiveWorkspace(created.id);
+    try {
+      const switchRes = await this.api.switchWorkspace(created.id);
+      this.authStore.updateWorkspaceSession(switchRes);
+    } catch {
+      this.authStore.setActiveWorkspace(created.id);
+    }
     this.notify();
     return created;
   }

@@ -191,10 +191,15 @@ export function renderLoginView(
         render();
 
         try {
-          const loginRes = await deps.api.login({
+          const savedWorkspaceId = typeof localStorage !== 'undefined' ? (localStorage.getItem('shn_active_workspace_id') || undefined) : undefined;
+          const loginPayload: { email: string; password: string; workspaceId?: string | undefined } = {
             email,
             password,
-          });
+          };
+          if (savedWorkspaceId) {
+            loginPayload.workspaceId = savedWorkspaceId;
+          }
+          const loginRes = await deps.api.login(loginPayload);
 
           deps.authStore.handleLoginSuccess(loginRes);
           deps.notify.success(`Welcome, ${loginRes.user.displayName}`, 'Authenticated');

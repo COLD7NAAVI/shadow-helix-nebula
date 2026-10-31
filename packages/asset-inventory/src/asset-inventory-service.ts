@@ -66,6 +66,8 @@ export class AssetInventoryService {
 
     // 1. Determine canonical value and type
     let type = cmd.type;
+    if ((type as string) === 'IPV4_ADDRESS') type = 'IPV4';
+    if ((type as string) === 'DOMAIN') type = 'FQDN';
     let canonicalValue: string;
 
     if (!type) {

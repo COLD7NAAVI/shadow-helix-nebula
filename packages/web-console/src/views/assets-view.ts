@@ -21,10 +21,15 @@ export function renderAssetsView(
   let inspectedAsset: Asset | null = null;
   let isUpdatingAsset = false;
 
-  const currentWks = deps.workspaceStore.getState().activeWorkspace;
-
   async function loadData() {
-    if (!currentWks) return;
+    const currentWks = deps.workspaceStore.getActiveWorkspace();
+    if (!currentWks) {
+      assets = [];
+      findings = [];
+      isLoading = false;
+      render();
+      return;
+    }
     isLoading = true;
     render();
 
@@ -342,7 +347,11 @@ export function renderAssetsView(
     // Handle Register Asset Submit
     container.querySelector('#form-register-asset')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (!currentWks) return;
+      const activeWks = deps.workspaceStore.getActiveWorkspace();
+      if (!activeWks) {
+        deps.notify.error('No active workspace selected.');
+        return;
+      }
 
       const rawTarget = (container.querySelector('#reg-asset-target') as HTMLInputElement).value.trim();
       const name = (container.querySelector('#reg-asset-name') as HTMLInputElement).value.trim();
@@ -352,7 +361,7 @@ export function renderAssetsView(
       const tags = tagsStr.split(',').map((t) => t.trim()).filter(Boolean);
 
       try {
-        await deps.api.registerAsset(currentWks.id, {
+        await deps.api.registerAsset(activeWks.id, {
           rawTarget,
           name: name || rawTarget,
           type,
@@ -369,7 +378,8 @@ export function renderAssetsView(
 
     // Handle Asset Updates
     container.querySelector('#btn-save-asset-update')?.addEventListener('click', async () => {
-      if (!currentWks || !inspectedAsset) return;
+      const activeWks = deps.workspaceStore.getActiveWorkspace();
+      if (!activeWks || !inspectedAsset) return;
       isUpdatingAsset = true;
       render();
 
@@ -377,7 +387,7 @@ export function renderAssetsView(
       const status = (container.querySelector('#update-status-select') as HTMLSelectElement).value;
 
       try {
-        const updated = await deps.api.updateAsset(currentWks.id, inspectedAsset.id, {
+        const updated = await deps.api.updateAsset(activeWks.id, inspectedAsset.id, {
           criticality: crit as any,
           status: status as any,
         });

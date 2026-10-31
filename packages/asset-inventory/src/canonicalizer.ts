@@ -40,8 +40,9 @@ export function canonicalizeTarget(type: AssetType, raw: string): Result<string,
     return err('Target value cannot be empty');
   }
 
-  switch (type) {
-    case 'IPV4': {
+  switch (type as string) {
+    case 'IPV4':
+    case 'IPV4_ADDRESS': {
       if (!IPV4_REGEX.test(trimmed)) {
         return err(`Invalid IPv4 address format: "${trimmed}"`);
       }
@@ -88,7 +89,8 @@ export function canonicalizeTarget(type: AssetType, raw: string): Result<string,
       return ok(`${netOctets.join('.')}/${prefix}`);
     }
 
-    case 'FQDN': {
+    case 'FQDN':
+    case 'DOMAIN': {
       const lower = trimmed.toLowerCase().replace(/\.$/, '');
       if (!FQDN_REGEX.test(lower)) {
         return err(`Invalid FQDN domain format: "${trimmed}"`);

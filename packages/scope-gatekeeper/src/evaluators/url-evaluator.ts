@@ -12,7 +12,7 @@
 
 import { ok, err, type Result } from '@shn/shared-kernel';
 import { canonicalizeHostname, isHostnameContainedInScope } from './hostname-evaluator.js';
-import { isBlacklistedIpOrCidr } from './cidr-evaluator.js';
+import { isCloudMetadataIpOrCidr } from './cidr-evaluator.js';
 
 export interface ParsedScopeUrl {
   readonly scheme: string;
@@ -92,8 +92,8 @@ export function parseAndNormalizeUrl(rawUrl: string): Result<ParsedScopeUrl, str
 
   // Check if hostPart is an IP address
   if (hostPart.includes('.') || hostPart.includes(':')) {
-    if (isBlacklistedIpOrCidr(hostPart)) {
-      return err(`Prohibited IP target in URL '${hostPart}' is blacklisted`);
+    if (isCloudMetadataIpOrCidr(hostPart)) {
+      return err(`Prohibited IP target in URL '${hostPart}' is blacklisted (SEC-INV-08 cloud metadata protection)`);
     }
   }
 

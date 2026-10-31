@@ -38,7 +38,8 @@ import type {
 } from '../contracts.js';
 import { makeScopeProblem } from '../errors.js';
 import {
-  isBlacklistedIpOrCidr,
+  isCloudMetadataIpOrCidr,
+  isLoopbackIpOrCidr,
   isTargetContainedInCidr,
   parseIPv4Address,
   parseIPv6Address,
@@ -47,7 +48,8 @@ import {
 import {
   canonicalizeHostname,
   isHostnameContainedInScope,
-  isBlacklistedHostname,
+  isCloudMetadataHostname,
+  isLoopbackHostname,
 } from '../evaluators/hostname-evaluator.js';
 import {
   parseAndNormalizeUrl,
@@ -67,6 +69,7 @@ import {
 
 export interface ScopeGatekeeperOptions {
   readonly scopeRepo?: ScopeRepository | undefined;
+  readonly scopeRepository?: ScopeRepository | undefined;
   readonly workspaceRepo?: WorkspaceRepository | undefined;
   readonly orgRepo?: OrganizationRepository | undefined;
   readonly tokenSigner?: ScopeTokenSigner | undefined;
@@ -140,7 +143,7 @@ export class ScopeGatekeeper implements IScopeGatekeeper {
   private readonly tracer?: ITracer | undefined;
 
   constructor(options: ScopeGatekeeperOptions = {}) {
-    this.scopeRepo = options.scopeRepo;
+    this.scopeRepo = options.scopeRepo ?? options.scopeRepository;
     this.workspaceRepo = options.workspaceRepo;
     this.tokenSigner =
       options.tokenSigner ??
@@ -526,11 +529,49 @@ export class ScopeGatekeeper implements IScopeGatekeeper {
     const normTarget = canonRes.value;
 
     // 7. Security Restrictions / Blacklist Checks
-    if (!allowMetadata) {
-      if (
-        isBlacklistedIpOrCidr(normTarget.canonical) ||
-        (normTarget.host && isBlacklistedHostname(normTarget.host))
-      ) {
+    const isCloudMeta =
+      isCloudMetadataIpOrCidr(normTarget.canonical) ||
+      (normTarget.host ? isCloudMetadataHostname(normTarget.host) : false);
+
+    if (isCloudMeta && !allowMetadata) {
+      return ok({
+        allowed: false,
+        reason: `Prohibited target '${target}' is blacklisted (SEC-INV-08 metadata protection)`,
+        errorCode: ErrorCode.SCOPE_METADATA_PROHIBITED,
+        normalizedTarget: normTarget,
+        scopeId: activeScope.scopeId,
+        evaluatedAt,
+      });
+    }
+
+    const isLoopback =
+      isLoopbackIpOrCidr(normTarget.canonical) ||
+      (normTarget.host ? isLoopbackHostname(normTarget.host) : false);
+
+    if (isLoopback) {
+      // Loopback is strictly prohibited unless explicitly authorized by the active scope's inclusions
+      // (a broad wildcard such as 0.0.0.0/0 NEVER authorizes loopback)
+      const inc = activeScope.inclusions;
+      const explicitlyIncludesLoopback =
+        (inc.cidrs ?? []).some((c) => {
+          const trimmed = c.trim().toLowerCase();
+          return trimmed === '127.0.0.1' || trimmed === '127.0.0.1/32' || trimmed.startsWith('127.') || trimmed === '::1';
+        }) ||
+        (inc.urls ?? []).some((u) => {
+          const trimmed = u.trim().toLowerCase();
+          return (
+            trimmed.startsWith('http://127.0.0.1') ||
+            trimmed.startsWith('https://127.0.0.1') ||
+            trimmed.startsWith('http://localhost') ||
+            trimmed.startsWith('https://localhost')
+          );
+        }) ||
+        (inc.hostnames ?? []).some((h) => {
+          const trimmed = h.trim().toLowerCase();
+          return trimmed === 'localhost' || trimmed === 'localhost.localdomain';
+        });
+
+      if (!explicitlyIncludesLoopback) {
         return ok({
           allowed: false,
           reason: `Prohibited target '${target}' is blacklisted (SEC-INV-08 metadata/loopback protection)`,
@@ -616,17 +657,23 @@ export class ScopeGatekeeper implements IScopeGatekeeper {
       }
     }
 
-    // 2. Check CIDRs if target is IP or CIDR
-    if (
-      (target.type === 'ipv4' ||
+    // 2. Check CIDRs if target is IP/CIDR, or if target is a URL whose host is an IP
+    if (boundaries.cidrs) {
+      const ipCandidate =
+        target.type === 'ipv4' ||
         target.type === 'ipv6' ||
         target.type === 'cidr4' ||
-        target.type === 'cidr6') &&
-      boundaries.cidrs
-    ) {
-      for (const scopeCidr of boundaries.cidrs) {
-        if (isTargetContainedInCidr(target.canonical, scopeCidr)) {
-          return scopeCidr;
+        target.type === 'cidr6'
+          ? target.canonical
+          : target.host && (/^\d+\.\d+\.\d+\.\d+$/.test(target.host) || target.host.includes(':'))
+            ? target.host
+            : undefined;
+
+      if (ipCandidate) {
+        for (const scopeCidr of boundaries.cidrs) {
+          if (isTargetContainedInCidr(ipCandidate, scopeCidr)) {
+            return scopeCidr;
+          }
         }
       }
     }

@@ -56,6 +56,8 @@ export {
   parseCidrBlock,
   isProhibitedIPv4,
   isProhibitedIPv6,
+  isCloudMetadataIpOrCidr,
+  isLoopbackIpOrCidr,
   isBlacklistedIpOrCidr,
   isTargetContainedInCidr,
 } from './evaluators/cidr-evaluator.js';
@@ -65,6 +67,8 @@ export {
   canonicalizeHostname,
   isHostnameContainedInScope,
   isBlacklistedHostname,
+  isCloudMetadataHostname,
+  isLoopbackHostname,
 } from './evaluators/hostname-evaluator.js';
 
 // URL Evaluator

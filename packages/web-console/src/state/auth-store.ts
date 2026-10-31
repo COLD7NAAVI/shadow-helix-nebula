@@ -68,6 +68,10 @@ export class AuthStore {
     this.notify();
   }
 
+  updateWorkspaceSession(data: LoginResponse): void {
+    this.handleLoginSuccess(data);
+  }
+
   setActiveWorkspace(workspaceId: string): void {
     localStorage.setItem('shn_active_workspace_id', workspaceId);
     this.state.workspaceId = workspaceId;
@@ -107,8 +111,9 @@ export class AuthStore {
             organizationId: me.actor.organizationId,
           };
         }
-        if (me.workspaceId && !this.state.workspaceId) {
+        if (me.workspaceId) {
           this.state.workspaceId = me.workspaceId;
+          localStorage.setItem('shn_active_workspace_id', me.workspaceId);
         }
         this.notify();
         return true;

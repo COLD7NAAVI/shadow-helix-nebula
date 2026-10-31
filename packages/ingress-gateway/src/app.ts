@@ -112,6 +112,8 @@ export function createIngressApplication(deps: AppDependencies): IngressServer {
     });
     router.post('/api/v1/auth/register', (req, res) => authCtrl.register(req, res));
     router.post('/api/v1/auth/login', (req, res) => authCtrl.login(req, res));
+    router.post('/api/v1/auth/switch-workspace', authMiddleware, (req, res) => authCtrl.switchWorkspace(req, res));
+    router.post('/api/v1/auth/refresh', authMiddleware, (req, res) => authCtrl.refresh(req, res));
     router.get('/api/v1/auth/me', authMiddleware, (req, res) => authCtrl.me(req, res));
   }
 

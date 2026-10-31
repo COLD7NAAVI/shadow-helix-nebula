@@ -7,6 +7,7 @@
 
 import {
   generateUUIDv7,
+  isValidUUID,
   createOrganizationId,
   createUserId,
   createWorkspaceId,
@@ -213,8 +214,25 @@ export class AuthController {
 
     // Determine target workspace
     let targetWorkspaceId: WorkspaceId;
-    if (workspaceId) {
-      targetWorkspaceId = workspaceId as WorkspaceId;
+    if (workspaceId && typeof workspaceId === 'string' && isValidUUID(workspaceId)) {
+      const wks = await this.workspaceRepo.findById(workspaceId as WorkspaceId);
+      if (wks && wks.organization_id === user.organization_id) {
+        targetWorkspaceId = wks.id;
+      } else {
+        const workspaces = await this.workspaceRepo.listByOrganization(user.organization_id);
+        if (workspaces.length === 0) {
+          const problem = createProblemDetails({
+            errorCode: ErrorCode.AUTH_CROSS_WORKSPACE_DENIED,
+            detail: 'No accessible workspaces found for user.',
+            instance: req.path,
+            correlationId: req.correlationId,
+            customStatus: 404,
+          });
+          sendProblemDetails(res, problem);
+          return;
+        }
+        targetWorkspaceId = workspaces[0]!.id;
+      }
     } else {
       const workspaces = await this.workspaceRepo.listByOrganization(user.organization_id);
       if (workspaces.length === 0) {
@@ -281,6 +299,167 @@ export class AuthController {
       },
       workspaceId: targetWorkspaceId,
       roles: effectiveRoles,
+      permissionMask,
+      expiresAt: tokenClaims.expires_at,
+    });
+  }
+
+  async switchWorkspace(req: IngressRequest, res: IngressResponse): Promise<void> {
+    if (!req.actor || !req.securityContext) {
+      const problem = createProblemDetails({
+        errorCode: ErrorCode.AUTH_UNAUTHENTICATED,
+        detail: 'Authentication required to switch workspace.',
+        instance: req.path,
+        correlationId: req.correlationId,
+      });
+      sendProblemDetails(res, problem);
+      return;
+    }
+
+    const body = req.body ?? {};
+    const { workspaceId } = body;
+
+    if (!workspaceId || typeof workspaceId !== 'string' || !isValidUUID(workspaceId)) {
+      const problem = createProblemDetails({
+        errorCode: ErrorCode.AUTH_CROSS_WORKSPACE_DENIED,
+        detail: 'Requested workspace does not exist or caller lacks access.',
+        instance: req.path,
+        correlationId: req.correlationId,
+        customStatus: 404,
+      });
+      sendProblemDetails(res, problem);
+      return;
+    }
+
+    const targetWksId = workspaceId as WorkspaceId;
+    const workspace = await this.workspaceRepo.findById(targetWksId);
+    if (!workspace || workspace.organization_id !== req.actor.organizationId) {
+      const problem = createProblemDetails({
+        errorCode: ErrorCode.AUTH_CROSS_WORKSPACE_DENIED,
+        detail: 'Requested workspace does not exist or caller lacks access.',
+        instance: req.path,
+        correlationId: req.correlationId,
+        customStatus: 404,
+      });
+      sendProblemDetails(res, problem);
+      return;
+    }
+
+    // Check user's roles on organization and on target workspace
+    let roleNames: readonly string[] = [];
+    let isOrgAdmin = false;
+
+    if (this.roleRepo) {
+      const orgRoles = await this.roleRepo.getUserRoles(req.actor.id, req.actor.organizationId);
+      isOrgAdmin = orgRoles.some((r) => r.role_name === 'ORG_ADMIN');
+
+      const userRoles = await this.roleRepo.getUserRoles(req.actor.id, req.actor.organizationId, targetWksId);
+      if (userRoles.length > 0) {
+        roleNames = userRoles.map((r) => r.role_name);
+      }
+    } else {
+      isOrgAdmin = true;
+      roleNames = ['ORG_ADMIN'];
+    }
+
+    if (!isOrgAdmin && roleNames.length === 0) {
+      const problem = createProblemDetails({
+        errorCode: ErrorCode.AUTH_CROSS_WORKSPACE_DENIED,
+        detail: 'Requested workspace does not exist or caller lacks access.',
+        instance: req.path,
+        correlationId: req.correlationId,
+        customStatus: 404,
+      });
+      sendProblemDetails(res, problem);
+      return;
+    }
+
+    const effectiveRoles = [...new Set([...(isOrgAdmin ? ['ORG_ADMIN', 'ADMIN'] : []), ...roleNames])];
+    const isAdmin =
+      effectiveRoles.includes('ORG_ADMIN') ||
+      effectiveRoles.includes('WORKSPACE_ADMIN') ||
+      effectiveRoles.includes('ADMIN');
+
+    let permissionMask = 0;
+    if (isAdmin) {
+      permissionMask = Object.values(PermissionBit).reduce((acc, bit) => acc | bit, 0);
+    } else {
+      permissionMask =
+        PermissionBit.SCOPE_READ |
+        PermissionBit.WORKFLOW_READ |
+        PermissionBit.WORKFLOW_EXECUTE |
+        PermissionBit.RECON_PASSIVE |
+        PermissionBit.PROBING_ACTIVE;
+    }
+
+    const tokenClaims = this.signer.createToken({
+      subjectId: req.actor.id,
+      subjectType: 'OPERATOR',
+      workspaceId: targetWksId,
+      roles: effectiveRoles,
+      permissionMask,
+      ttlSeconds: 3600,
+    });
+
+    const encodedToken = Buffer.from(JSON.stringify(tokenClaims), 'utf8').toString('base64');
+
+    const user = await this.userRepo.findById(req.actor.id);
+    const displayName = user?.display_name || req.actor.email;
+
+    res.status(200).json({
+      token: encodedToken,
+      user: {
+        id: req.actor.id,
+        email: req.actor.email,
+        displayName,
+        organizationId: req.actor.organizationId,
+      },
+      workspaceId: targetWksId,
+      roles: effectiveRoles,
+      permissionMask,
+      expiresAt: tokenClaims.expires_at,
+    });
+  }
+
+  async refresh(req: IngressRequest, res: IngressResponse): Promise<void> {
+    if (!req.actor || !req.securityContext) {
+      const problem = createProblemDetails({
+        errorCode: ErrorCode.AUTH_UNAUTHENTICATED,
+        detail: 'Authentication required to refresh session.',
+        instance: req.path,
+        correlationId: req.correlationId,
+      });
+      sendProblemDetails(res, problem);
+      return;
+    }
+
+    const activeWorkspaceId = req.securityContext.workspace_id;
+    const roles = req.securityContext.roles ?? ['OPERATOR'];
+    const permissionMask = req.securityContext.permission_mask ?? 0;
+
+    const tokenClaims = this.signer.createToken({
+      subjectId: req.actor.id,
+      subjectType: 'OPERATOR',
+      workspaceId: activeWorkspaceId,
+      roles,
+      permissionMask,
+      ttlSeconds: 3600,
+    });
+
+    const encodedToken = Buffer.from(JSON.stringify(tokenClaims), 'utf8').toString('base64');
+    const user = await this.userRepo.findById(req.actor.id);
+    const displayName = user?.display_name || req.actor.email;
+
+    res.status(200).json({
+      token: encodedToken,
+      user: {
+        id: req.actor.id,
+        email: req.actor.email,
+        displayName,
+        organizationId: req.actor.organizationId,
+      },
+      workspaceId: activeWorkspaceId,
+      roles,
       permissionMask,
       expiresAt: tokenClaims.expires_at,
     });
