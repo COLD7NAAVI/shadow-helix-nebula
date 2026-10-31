@@ -62,8 +62,9 @@ export class ScansView {
 
     try {
       this.notify.info(`Dispatching assessment scan against ${target}...`);
-      let capUri = 'shn://capabilities/web/http-baseline';
-      if (scanType === 'TLS') capUri = 'shn://capabilities/web/tls-inspect';
+      let capUri = 'shn://capabilities/web/http-discovery';
+      if (scanType === 'PORT') capUri = 'shn://capabilities/network/port-scan';
+      else if (scanType === 'TLS') capUri = 'shn://capabilities/web/tls-inspect';
       else if (scanType === 'DNS') capUri = 'shn://capabilities/recon/dns-lookup';
 
       const exec = await this.api.dispatchExecution(ws.id, {
@@ -119,11 +120,23 @@ export class ScansView {
             <!-- Target Selection -->
             <div>
               <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px;">Target Asset</label>
-              <select id="scan-target-select" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;">
-                ${this.assets.map((a) => `
-                  <option value="${a.canonicalValue || a.rawTarget}">${a.name} (${a.canonicalValue || a.rawTarget})</option>
-                `).join('')}
-              </select>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                ${this.assets.length > 0 ? `
+                  <select id="scan-target-select" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;">
+                    <option value="">-- Choose from Monitored Assets --</option>
+                    ${this.assets.map((a) => `
+                      <option value="${a.canonicalValue || a.rawTarget}">${a.name} (${a.canonicalValue || a.rawTarget})</option>
+                    `).join('')}
+                  </select>
+                ` : ''}
+                <input
+                  id="scan-target-input"
+                  type="text"
+                  placeholder="e.g. https://target.local or 10.0.0.1"
+                  value="${this.assets[0]?.canonicalValue || this.assets[0]?.rawTarget || ''}"
+                  style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;font-family:var(--font-mono);"
+                />
+              </div>
             </div>
 
             <!-- Scan Type -->
@@ -131,6 +144,7 @@ export class ScansView {
               <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px;">Assessment Profile</label>
               <select id="scan-profile-select" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;">
                 <option value="HTTP">HTTP Security Baseline & Server Headers</option>
+                <option value="PORT">Network Port Scanner (Services & Banners)</option>
                 <option value="TLS">TLS Cryptographic & Cipher Suite Audit</option>
                 <option value="DNS">DNS Routing & Zone Assessment</option>
               </select>
@@ -195,11 +209,22 @@ export class ScansView {
       this.loadData();
     });
 
+    const selectTarget = this.container.querySelector<HTMLSelectElement>('#scan-target-select');
+    const inputTarget = this.container.querySelector<HTMLInputElement>('#scan-target-input');
+
+    selectTarget?.addEventListener('change', () => {
+      if (selectTarget.value && inputTarget) {
+        inputTarget.value = selectTarget.value;
+      }
+    });
+
     this.container.querySelector('#btn-launch-scan')?.addEventListener('click', () => {
-      const target = this.container?.querySelector<HTMLSelectElement>('#scan-target-select')?.value;
+      const target = inputTarget?.value?.trim();
       const profile = this.container?.querySelector<HTMLSelectElement>('#scan-profile-select')?.value || 'HTTP';
       if (target) {
         this.launchScan(profile, target);
+      } else {
+        this.notify.warning('Please specify or select a target asset.');
       }
     });
   }

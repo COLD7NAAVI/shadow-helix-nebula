@@ -181,7 +181,7 @@ export class TerminalView {
                   id="input-target-custom"
                   type="text"
                   placeholder="Or enter target URL / hostname..."
-                  value="${this.assets[0]?.canonicalValue || this.assets[0]?.rawTarget || 'https://16-170-222-236.sslip.io/'}"
+                  value="${this.assets[0]?.canonicalValue || this.assets[0]?.rawTarget || ''}"
                   style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;font-family:var(--font-mono);"
                 />
               </div>

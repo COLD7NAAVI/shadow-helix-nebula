@@ -112,11 +112,19 @@ export class ReconView {
             <!-- Target Selection -->
             <div>
               <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px;">Target Hostname / Domain</label>
+              ${this.assets.length > 0 ? `
+                <select id="recon-asset-select" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;margin-bottom:6px;">
+                  <option value="">-- Select Monitored Asset --</option>
+                  ${this.assets.map(a => `
+                    <option value="${a.canonicalValue || a.rawTarget}">${a.name} (${a.canonicalValue || a.rawTarget})</option>
+                  `).join('')}
+                </select>
+              ` : ''}
               <input
                 id="recon-target-input"
                 type="text"
-                placeholder="e.g. 16-170-222-236.sslip.io"
-                value="${this.assets[0]?.canonicalValue || '16-170-222-236.sslip.io'}"
+                placeholder="e.g. target.domain.local or 10.0.0.1"
+                value="${this.assets[0]?.canonicalValue || this.assets[0]?.rawTarget || ''}"
                 style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;font-family:var(--font-mono);"
               />
             </div>
@@ -126,8 +134,9 @@ export class ReconView {
               <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px;">Discovery Method</label>
               <select id="recon-cap-select" style="width:100%;padding:8px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;">
                 <option value="shn://capabilities/recon/dns-lookup">DNS Zone & Record Lookup (Authoritative A, MX, TXT)</option>
-                <option value="shn://capabilities/web/http-baseline">HTTP Service & Header Fingerprinting</option>
+                <option value="shn://capabilities/web/http-discovery">HTTP Service & Header Fingerprinting</option>
                 <option value="shn://capabilities/web/tls-inspect">TLS / SSL Certificate Information Discovery</option>
+                <option value="shn://capabilities/network/port-scan">Network Port Scanner (Rate-Limited TCP Connect)</option>
               </select>
             </div>
 

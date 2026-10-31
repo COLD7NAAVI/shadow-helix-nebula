@@ -9,7 +9,14 @@
 import type { SettingsStore } from '../state/settings-store.js';
 import type { AuthStore } from '../state/auth-store.js';
 import type { NotificationStore } from '../state/notification-store.js';
-import type { ThemeMode, AccentColor, FontPreference, DensityPreference, BackgroundStyle } from '../contracts.js';
+import type {
+  ThemeMode,
+  AccentColor,
+  FontPreference,
+  DensityPreference,
+  BackgroundStyle,
+  BundledWallpaper,
+} from '../contracts.js';
 
 export class SettingsView {
   private container: HTMLElement | null = null;
@@ -64,6 +71,15 @@ export class SettingsView {
       { id: 'amber', label: 'Solar Amber', color: '#f59e0b' },
     ];
 
+    const wallpapers: Array<{ id: BundledWallpaper; label: string; desc: string; icon: string; preview: string }> = [
+      { id: 'nebula-core', label: 'Nebula Core', desc: 'Signature deep violet & cyan filaments', icon: '🌌', preview: 'radial-gradient(circle at 30% 30%, #8b5cf6, #06b6d4 60%, #050814)' },
+      { id: 'cyber-matrix', label: 'Cyber Matrix', desc: 'Neon isometric defense grid', icon: '⚡', preview: 'linear-gradient(45deg, #00f0ff 10%, #020712 90%)' },
+      { id: 'quantum-aurora', label: 'Quantum Aurora', desc: 'Polar emerald & violet wave', icon: '🌠', preview: 'radial-gradient(circle at 70% 30%, #10b981, #8b5cf6 60%, #04090c)' },
+      { id: 'solar-corona', label: 'Solar Corona', desc: 'Radiant amber coronal flares', icon: '☀️', preview: 'radial-gradient(circle at 80% 20%, #f59e0b, #ef4444 60%, #0d0604)' },
+      { id: 'tactical-carbon', label: 'Tactical Carbon', desc: 'Stealth carbon fiber weave', icon: '🛡️', preview: 'linear-gradient(135deg, #27272a 0%, #090a0f 100%)' },
+      { id: 'obsidian-void', label: 'Obsidian Void', desc: 'Deep space void with soft horizon', icon: '🌑', preview: 'linear-gradient(180deg, #1e293b 0%, #020617 100%)' },
+    ];
+
     this.container.innerHTML = `
       <div class="view-header" style="margin-bottom: 1.5rem;">
         <div style="font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-accent); margin-bottom: 0.25rem;">
@@ -73,7 +89,7 @@ export class SettingsView {
           Settings & Personalization
         </h1>
         <p style="margin: 0.25rem 0 0 0; font-size: 0.875rem; color: var(--color-text-secondary);">
-          Customize the Helix Nebula signature design system, typography, display density, and inspect your sovereign cryptographic identity.
+          Customize the Helix Nebula signature design system, typography, display density, ambient mode wallpapers, and inspect your sovereign identity.
         </p>
       </div>
 
@@ -123,10 +139,10 @@ export class SettingsView {
             </div>
           </div>
 
-          <!-- Cosmic Background -->
+          <!-- Cosmic Background Particle Style -->
           <div style="margin-bottom: 1.5rem;">
             <label style="display: block; font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0.5rem; text-transform: uppercase;">
-              Background Style
+              Canvas Particle Atmosphere
             </label>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
               ${(['nebula', 'starfield', 'void'] as BackgroundStyle[]).map(s => `
@@ -141,11 +157,11 @@ export class SettingsView {
             </div>
           </div>
 
-          <!-- Background Opacity Slider -->
+          <!-- Particle Canvas Opacity Slider -->
           <div style="margin-bottom: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
               <label style="font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase;">
-                Background Glow Opacity
+                Particle Scintillation Opacity
               </label>
               <span id="opacity-val" style="font-family: var(--font-mono); font-size: 0.8125rem; color: var(--color-accent);">
                 ${Math.round(settings.backgroundOpacity * 100)}%
@@ -157,6 +173,128 @@ export class SettingsView {
               min="10"
               max="100"
               value="${Math.round(settings.backgroundOpacity * 100)}"
+              style="width: 100%; accent-color: var(--color-accent);"
+            />
+          </div>
+        </div>
+
+        <!-- Ambient Mode Wallpapers & Background Atmosphere -->
+        <div class="card" style="padding: 1.5rem;">
+          <h2 style="margin: 0 0 1rem 0; font-size: 1.125rem; font-weight: 600; color: var(--color-text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <span>🖼️</span> Ambient Wallpapers & Atmosphere
+          </h2>
+
+          <!-- Wallpaper Presets Grid -->
+          <div style="margin-bottom: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <label style="font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase;">
+                Wallpaper Presets (${wallpapers.length} Bundled)
+              </label>
+              ${settings.wallpaperPreset === 'custom' ? `
+                <span class="badge" style="background: var(--accent-subtle); color: var(--accent-primary); font-size: 10px;">
+                  CUSTOM IMAGE ACTIVE
+                </span>
+              ` : ''}
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.75rem;">
+              ${wallpapers.map(w => `
+                <button
+                  class="btn-wallpaper-select card"
+                  data-wallpaper-id="${w.id}"
+                  style="cursor: pointer; padding: 0.625rem; text-align: center; border: 2px solid ${settings.wallpaperPreset === w.id ? 'var(--color-accent)' : 'var(--color-border)'}; background: ${settings.wallpaperPreset === w.id ? 'var(--color-surface-elevated)' : 'var(--color-surface-sunken)'}; border-radius: var(--radius-md); transition: all 0.2s ease;"
+                  title="${w.desc}"
+                >
+                  <div style="width: 100%; height: 36px; border-radius: var(--radius-xs); background: ${w.preview}; margin-bottom: 0.375rem; border: 1px solid rgba(255,255,255,0.15);"></div>
+                  <div style="font-weight: 600; font-size: 0.75rem; color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    ${w.label}
+                  </div>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- Local Image Upload Section -->
+          <div style="margin-bottom: 1.25rem; padding: 1rem; background: var(--color-surface-sunken); border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <span style="font-size: 0.8125rem; font-weight: 600; color: var(--color-text-primary);">
+                📁 Custom Local Wallpaper
+              </span>
+              <input type="file" id="input-custom-wallpaper" accept="image/*" style="display: none;" />
+              <div style="display: flex; gap: 8px;">
+                <button id="btn-trigger-upload" class="btn btn-secondary btn-sm" style="font-size: 11px;">
+                  Upload Image...
+                </button>
+                ${settings.customWallpaperDataUrl ? `
+                  <button id="btn-clear-wallpaper" class="btn btn-ghost btn-sm" style="font-size: 11px; color: var(--color-critical);">
+                    Clear
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--color-text-muted);">
+              ${settings.customWallpaperDataUrl
+                ? 'Custom image loaded and persisted in browser local storage & workspace profile.'
+                : 'Select any PNG, JPG, or SVG image from your local system. Stored securely.'}
+            </div>
+          </div>
+
+          <!-- Wallpaper Opacity Slider -->
+          <div style="margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.375rem;">
+              <label style="font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase;">
+                Wallpaper Opacity
+              </label>
+              <span id="wallpaper-opacity-val" style="font-family: var(--font-mono); font-size: 0.8125rem; color: var(--color-accent);">
+                ${Math.round(settings.wallpaperOpacity * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              id="input-wallpaper-opacity"
+              min="10"
+              max="100"
+              value="${Math.round(settings.wallpaperOpacity * 100)}"
+              style="width: 100%; accent-color: var(--color-accent);"
+            />
+          </div>
+
+          <!-- Wallpaper Blur Slider -->
+          <div style="margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.375rem;">
+              <label style="font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase;">
+                Wallpaper Backdrop Blur
+              </label>
+              <span id="wallpaper-blur-val" style="font-family: var(--font-mono); font-size: 0.8125rem; color: var(--color-accent);">
+                ${settings.wallpaperBlur}px
+              </span>
+            </div>
+            <input
+              type="range"
+              id="input-wallpaper-blur"
+              min="0"
+              max="24"
+              value="${settings.wallpaperBlur}"
+              style="width: 100%; accent-color: var(--color-accent);"
+            />
+          </div>
+
+          <!-- Contrast Overlay Intensity Slider -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.375rem;">
+              <label style="font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase;">
+                Dark Contrast Vignette Overlay
+              </label>
+              <span id="overlay-intensity-val" style="font-family: var(--font-mono); font-size: 0.8125rem; color: var(--color-accent);">
+                ${Math.round(settings.overlayIntensity * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              id="input-overlay-intensity"
+              min="0"
+              max="90"
+              value="${Math.round(settings.overlayIntensity * 100)}"
               style="width: 100%; accent-color: var(--color-accent);"
             />
           </div>
@@ -356,6 +494,98 @@ export class SettingsView {
       this.settingsStore.setBackgroundOpacity(val / 100);
     });
 
+    // Wallpaper Preset selection
+    this.container.querySelectorAll<HTMLButtonElement>('.btn-wallpaper-select').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const wid = btn.dataset.wallpaperId as BundledWallpaper;
+        if (wid) {
+          this.settingsStore.setWallpaperPreset(wid);
+          this.notificationStore.notify({
+            type: 'info',
+            title: 'Wallpaper Updated',
+            message: `Active wallpaper switched to ${wid}.`,
+          });
+        }
+      });
+    });
+
+    // Custom Wallpaper Upload
+    const uploadInput = this.container.querySelector<HTMLInputElement>('#input-custom-wallpaper');
+    this.container.querySelector('#btn-trigger-upload')?.addEventListener('click', () => {
+      uploadInput?.click();
+    });
+
+    uploadInput?.addEventListener('change', (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        this.notificationStore.notify({
+          type: 'error',
+          title: 'Invalid File',
+          message: 'Please select a valid image file (PNG, JPG, SVG, WEBP).',
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          this.settingsStore.setCustomWallpaper(reader.result);
+          this.notificationStore.notify({
+            type: 'success',
+            title: 'Custom Wallpaper Active',
+            message: `Loaded custom image (${Math.round(file.size / 1024)} KB) and persisted to profile.`,
+          });
+        }
+      };
+      reader.onerror = () => {
+        this.notificationStore.notify({
+          type: 'error',
+          title: 'Read Failed',
+          message: 'Failed to read selected local image file.',
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Clear Custom Wallpaper
+    this.container.querySelector('#btn-clear-wallpaper')?.addEventListener('click', () => {
+      this.settingsStore.clearCustomWallpaper();
+      this.notificationStore.notify({
+        type: 'info',
+        title: 'Custom Wallpaper Cleared',
+        message: 'Reverted to default bundled wallpaper.',
+      });
+    });
+
+    // Wallpaper Opacity Slider
+    const wallOpacityInput = this.container.querySelector<HTMLInputElement>('#input-wallpaper-opacity');
+    wallOpacityInput?.addEventListener('input', (e) => {
+      const val = parseInt((e.target as HTMLInputElement).value, 10);
+      const span = this.container?.querySelector('#wallpaper-opacity-val');
+      if (span) span.textContent = `${val}%`;
+      this.settingsStore.setWallpaperOpacity(val / 100);
+    });
+
+    // Wallpaper Blur Slider
+    const wallBlurInput = this.container.querySelector<HTMLInputElement>('#input-wallpaper-blur');
+    wallBlurInput?.addEventListener('input', (e) => {
+      const val = parseInt((e.target as HTMLInputElement).value, 10);
+      const span = this.container?.querySelector('#wallpaper-blur-val');
+      if (span) span.textContent = `${val}px`;
+      this.settingsStore.setWallpaperBlur(val);
+    });
+
+    // Overlay Intensity Slider
+    const overlayInput = this.container.querySelector<HTMLInputElement>('#input-overlay-intensity');
+    overlayInput?.addEventListener('input', (e) => {
+      const val = parseInt((e.target as HTMLInputElement).value, 10);
+      const span = this.container?.querySelector('#overlay-intensity-val');
+      if (span) span.textContent = `${val}%`;
+      this.settingsStore.setOverlayIntensity(val / 100);
+    });
+
     // Font selection
     this.container.querySelectorAll<HTMLButtonElement>('.btn-font-select').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -393,6 +623,11 @@ export class SettingsView {
         reducedMotion: false,
         backgroundOpacity: 0.85,
         backgroundStyle: 'nebula',
+        wallpaperPreset: 'nebula-core',
+        customWallpaperDataUrl: undefined,
+        wallpaperOpacity: 0.5,
+        wallpaperBlur: 6,
+        overlayIntensity: 0.65,
       });
       this.notificationStore.notify({
         type: 'info',

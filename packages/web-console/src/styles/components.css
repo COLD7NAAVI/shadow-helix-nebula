@@ -725,3 +725,122 @@
     max-width: 100% !important;
   }
 }
+
+/* =========================================================================
+   AMBIENT MODE WALLPAPER & BACKGROUND ATMOSPHERE
+   ========================================================================= */
+#ambient-wallpaper-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+#ambient-wallpaper-image {
+  position: absolute;
+  top: -24px;
+  left: -24px;
+  right: -24px;
+  bottom: -24px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: var(--wallpaper-opacity, 0.5);
+  filter: blur(var(--wallpaper-blur, 6px));
+  transition: opacity var(--transition-normal), filter var(--transition-normal);
+  will-change: opacity, filter;
+}
+
+#ambient-wallpaper-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    circle at 50% 45%,
+    rgba(5, 8, 20, var(--overlay-center, 0.4)),
+    rgba(3, 4, 10, var(--overlay-edge, 0.65))
+  );
+  pointer-events: none;
+  transition: background var(--transition-normal);
+}
+
+/* Bundled Wallpaper 1: Nebula Core (Signature Deep Space) */
+[data-wallpaper='nebula-core'] #ambient-wallpaper-image {
+  background:
+    radial-gradient(ellipse at 20% 25%, rgba(139, 92, 246, 0.45) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 75%, rgba(6, 182, 212, 0.4) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(236, 72, 153, 0.25) 0%, transparent 60%),
+    linear-gradient(180deg, #050814 0%, #03040a 100%);
+}
+
+/* Bundled Wallpaper 2: Cyber Matrix (Isometric Cyberpunk Grid) */
+[data-wallpaper='cyber-matrix'] #ambient-wallpaper-image {
+  background:
+    radial-gradient(circle at 50% 40%, rgba(0, 240, 255, 0.25) 0%, transparent 70%),
+    linear-gradient(rgba(0, 240, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(180deg, #020712 0%, #010307 100%);
+  background-size: 100% 100%, 40px 40px, 40px 40px, 100% 100%;
+}
+
+/* Bundled Wallpaper 3: Quantum Aurora (Atmospheric Polar Wave) */
+[data-wallpaper='quantum-aurora'] #ambient-wallpaper-image {
+  background:
+    radial-gradient(ellipse at 70% 20%, rgba(16, 185, 129, 0.4) 0%, transparent 55%),
+    radial-gradient(ellipse at 30% 80%, rgba(168, 85, 247, 0.38) 0%, transparent 60%),
+    radial-gradient(circle at 60% 60%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
+    linear-gradient(180deg, #04090c 0%, #020406 100%);
+}
+
+/* Bundled Wallpaper 4: Solar Corona (Radiant Plasma Flares) */
+[data-wallpaper='solar-corona'] #ambient-wallpaper-image {
+  background:
+    radial-gradient(circle at 85% 15%, rgba(245, 158, 11, 0.45) 0%, transparent 60%),
+    radial-gradient(ellipse at 25% 70%, rgba(239, 68, 68, 0.3) 0%, transparent 55%),
+    radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.2) 0%, transparent 65%),
+    linear-gradient(180deg, #0d0604 0%, #040201 100%);
+}
+
+/* Bundled Wallpaper 5: Tactical Carbon (Stealth Carbon Fiber) */
+[data-wallpaper='tactical-carbon'] #ambient-wallpaper-image {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.12) 0%, transparent 75%),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.03) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.03) 75%),
+    linear-gradient(180deg, #090a0f 0%, #030406 100%);
+  background-size: 100% 100%, 20px 20px, 20px 20px, 20px 20px, 20px 20px, 100% 100%;
+}
+
+/* Bundled Wallpaper 6: Obsidian Void (Pure Deep Space with Horizon Glow) */
+[data-wallpaper='obsidian-void'] #ambient-wallpaper-image {
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(56, 189, 248, 0.15) 0%, transparent 70%),
+    linear-gradient(180deg, #020306 0%, #010204 100%);
+}
+
+/* Light / Day Theme Wallpaper Subdued Layer */
+[data-theme='day'] #ambient-wallpaper-overlay,
+[data-theme='light'] #ambient-wallpaper-overlay {
+  background: radial-gradient(
+    circle at 50% 45%,
+    rgba(241, 245, 249, var(--overlay-center, 0.7)),
+    rgba(226, 232, 240, var(--overlay-edge, 0.92))
+  );
+}
+
+/* Ambient Mode Theme Enhanced Translucency */
+[data-theme='ambient'] .card {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: var(--bg-card);
+  border-color: var(--border-medium);
+}
+

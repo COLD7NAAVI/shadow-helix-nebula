@@ -1260,6 +1260,36 @@ export async function startStandaloneServer(
     },
     platformCompatibility: ['linux', 'darwin', 'win32'],
     lifecycleState: 'ACTIVE',
+    integrityDigest: 'a2b3c4d5e6f708192a3b4c5d6e7f8a90a2b3c4d5e6f708192a3b4c5d6e7f8a90',
+  });
+
+  await capabilityRegistry.registerCapability({
+    id: createCapabilityId('shn://capabilities/web/http-baseline').unwrapOr('shn://capabilities/web/http-baseline' as any),
+    name: 'http-baseline',
+    version: '1.0.0',
+    displayName: 'HTTP Service Baseline & Header Audit',
+    description: 'HTTP baseline verification, server banners, security headers, and redirect analysis.',
+    category: 'DISCOVERY',
+    riskLevel: 'INFORMATIONAL',
+    supportedTargets: ['URL', 'DOMAIN', 'HOST'],
+    requiredPermissions: 1,
+    requiredScopeAction: 'http:probe',
+    argumentSchema: {
+      type: 'object',
+      properties: {
+        timeoutMs: { type: 'number', default: 5000 },
+        followRedirects: { type: 'boolean', default: false },
+      },
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number' },
+        headers: { type: 'object' },
+      },
+    },
+    platformCompatibility: ['linux', 'darwin', 'win32'],
+    lifecycleState: 'ACTIVE',
     integrityDigest: 'b1c2d3e4f5a60718293a4b5c6d7e8f90b1c2d3e4f5a60718293a4b5c6d7e8f90',
   });
 

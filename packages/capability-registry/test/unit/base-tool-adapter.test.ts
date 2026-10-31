@@ -239,7 +239,9 @@ describe('Base Tool Adapter & Reference Adapters (Unit Tests)', () => {
       it('should be instantiated with canonical binding', () => {
         assert.strictEqual(httpAdapter.adapterId, 'adapter:http-discovery');
         assert.strictEqual(httpAdapter.getLifecycleState(), 'AVAILABLE');
-        assert.strictEqual(httpAdapter.supportedCapabilities.length, 1);
+        assert.strictEqual(httpAdapter.supportedCapabilities.length, 2);
+        assert.strictEqual(httpAdapter.supportedCapabilities.some(c => String(c.capabilityId).includes('http-discovery')), true);
+        assert.strictEqual(httpAdapter.supportedCapabilities.some(c => String(c.capabilityId).includes('http-baseline')), true);
       });
 
       it('should build command vector with structured target and method', () => {

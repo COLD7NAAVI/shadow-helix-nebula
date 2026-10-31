@@ -7,6 +7,22 @@ export type AccentColor = 'cyan' | 'violet' | 'magenta' | 'emerald' | 'amber';
 export type FontPreference = 'sans' | 'mono';
 export type DensityPreference = 'comfortable' | 'compact';
 export type BackgroundStyle = 'nebula' | 'starfield' | 'void';
+export type BundledWallpaper =
+  | 'nebula-core'
+  | 'cyber-matrix'
+  | 'quantum-aurora'
+  | 'solar-corona'
+  | 'tactical-carbon'
+  | 'obsidian-void'
+  | 'custom';
+
+export interface AmbientSettings {
+  wallpaperPreset: BundledWallpaper;
+  customWallpaperDataUrl?: string | undefined;
+  wallpaperOpacity: number;
+  wallpaperBlur: number;
+  overlayIntensity: number;
+}
 
 export interface PersonalizationSettings {
   theme: ThemeMode;
@@ -17,6 +33,11 @@ export interface PersonalizationSettings {
   backgroundOpacity: number;
   backgroundStyle: BackgroundStyle;
   refreshIntervalSeconds: number;
+  wallpaperPreset: BundledWallpaper;
+  customWallpaperDataUrl?: string | undefined;
+  wallpaperOpacity: number;
+  wallpaperBlur: number;
+  overlayIntensity: number;
 }
 
 export interface User {
@@ -360,7 +381,9 @@ export interface UserPreferences {
   density: 'compact' | 'comfortable';
   reducedMotion: boolean;
   dashboardLayout?: {
-    panels: Array<{ id: string; visible: boolean; order: number; colSpan: number }>;
-    refreshIntervalSec: number;
+    panels?: Array<{ id: string; visible: boolean; order: number; colSpan: number }>;
+    refreshIntervalSec?: number;
+    ambientSettings?: AmbientSettings;
+    [key: string]: unknown;
   };
 }

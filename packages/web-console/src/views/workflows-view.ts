@@ -9,6 +9,7 @@
 import type { ApiClient } from '../services/api-client.js';
 import type { WorkspaceStore } from '../state/workspace-store.js';
 import type { NotificationStore } from '../state/notification-store.js';
+import type { Asset } from '../contracts.js';
 
 interface WorkflowPipeline {
   id: string;
@@ -23,6 +24,7 @@ export class WorkflowsView {
   private container: HTMLElement | null = null;
   private isRunning = false;
   private activePipelineId: string | null = null;
+  private assets: Asset[] = [];
 
   private readonly pipelines: WorkflowPipeline[] = [
     {
@@ -34,7 +36,7 @@ export class WorkflowsView {
       stages: [
         { name: '1. Scope Gatekeeper Validation', capabilityUri: 'internal:scope-check', requiresApproval: false, desc: 'Verifies target authorization and exclusion bounds.' },
         { name: '2. DNS Infrastructure Recon', capabilityUri: 'shn://capabilities/recon/dns-lookup', requiresApproval: false, desc: 'Queries authoritative A, AAAA, MX, and TXT records.' },
-        { name: '3. HTTP Service Baseline', capabilityUri: 'shn://capabilities/web/http-baseline', requiresApproval: false, desc: 'Captures HTTP status, server headers, and redirects.' },
+        { name: '3. HTTP Service Baseline', capabilityUri: 'shn://capabilities/web/http-discovery', requiresApproval: false, desc: 'Captures HTTP status, server headers, and redirects.' },
         { name: '4. TLS/SSL Cipher & Protocol Inspection', capabilityUri: 'shn://capabilities/web/tls-inspect', requiresApproval: false, desc: 'Audits certificate validity, cipher suites, and TLS version.' },
         { name: '5. Threat Intel & CVE Correlation', capabilityUri: 'internal:correlate-cve', requiresApproval: false, desc: 'Cross-references banners with NVD & EPSS scores.' },
         { name: '6. Report Generation & Signing', capabilityUri: 'internal:generate-report', requiresApproval: true, desc: 'Produces SHA-256 signed executive & technical reports.' },
@@ -74,17 +76,33 @@ export class WorkflowsView {
 
   mount(target: HTMLElement): void {
     this.container = target;
-    this.render();
-    this.bindEvents();
+    this.loadAssets();
   }
 
   unmount(): void {
     this.container = null;
   }
 
+  private async loadAssets(): Promise<void> {
+    const ws = this.workspaceStore.getActiveWorkspace();
+    if (ws) {
+      this.assets = await this.api.listAssets(ws.id).catch(() => []);
+    }
+    this.render();
+    this.bindEvents();
+  }
+
   private async executePipeline(pipeline: WorkflowPipeline): Promise<void> {
     const ws = this.workspaceStore.getActiveWorkspace();
     if (!ws) return;
+
+    const inputTarget = this.container?.querySelector<HTMLInputElement>('#workflow-target-input');
+    const target = inputTarget?.value?.trim();
+
+    if (!target) {
+      this.notify.warning('Please select or enter an authorized target asset before executing the pipeline.');
+      return;
+    }
 
     this.isRunning = true;
     this.activePipelineId = pipeline.id;
@@ -92,18 +110,16 @@ export class WorkflowsView {
     this.bindEvents();
 
     try {
-      this.notify.info(`Starting pipeline "${pipeline.name}" stage 1...`);
-      // Run the primary capability of stage 2
-      const target = 'https://16-170-222-236.sslip.io/';
-      const stage2 = pipeline.stages[1];
+      this.notify.info(`Starting pipeline "${pipeline.name}" against ${target}...`);
+      const stage = pipeline.stages.find((s) => s.capabilityUri.startsWith('shn://')) || pipeline.stages[1];
 
-      if (stage2 && stage2.capabilityUri.startsWith('shn://')) {
+      if (stage && stage.capabilityUri.startsWith('shn://')) {
         const exec = await this.api.dispatchExecution(ws.id, {
-          capabilityUri: stage2.capabilityUri,
+          capabilityUri: stage.capabilityUri,
           target,
-          parameters: { timeoutMs: 30000 },
+          parameters: { timeoutMs: 30000, pipelineId: pipeline.id, stageName: stage.name },
         });
-        this.notify.success(`Pipeline stage launched! Execution ID: ${exec.id}`);
+        this.notify.success(`Pipeline stage "${stage.name}" launched! Execution ID: ${exec.id}`);
       } else {
         this.notify.success(`Pipeline stages initialized. Check Terminal for real-time progress.`);
       }
@@ -135,6 +151,35 @@ export class WorkflowsView {
             <div class="page-subtitle">
               Sovereign automated assessment sequences with scope enforcement for: <strong style="color:var(--text-primary);">${ws?.name || 'Default'}</strong>
             </div>
+          </div>
+        </div>
+
+        <!-- Target Selector & Policy Boundary Banner -->
+        <div class="card" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;border:1px solid var(--border-medium);">
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:280px;flex:1;">
+            <label style="font-weight:700;font-size:12px;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
+              <span>🎯</span> Pipeline Target Asset
+            </label>
+            <div style="display:flex;gap:8px;">
+              ${this.assets.length > 0 ? `
+                <select id="workflow-target-select" style="padding:8px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;flex:1;">
+                  <option value="">-- Select Monitored Asset --</option>
+                  ${this.assets.map((a) => `
+                    <option value="${a.canonicalValue || a.rawTarget}">${a.name} (${a.canonicalValue || a.rawTarget})</option>
+                  `).join('')}
+                </select>
+              ` : ''}
+              <input
+                id="workflow-target-input"
+                type="text"
+                placeholder="Target URL / hostname (e.g. https://target.local)"
+                value="${this.assets[0]?.canonicalValue || this.assets[0]?.rawTarget || ''}"
+                style="flex:2;padding:8px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;font-family:var(--font-mono);"
+              />
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-secondary);max-width:340px;line-height:1.4;background:rgba(0,240,255,0.06);padding:8px 12px;border-radius:var(--radius-sm);border:1px solid rgba(0,240,255,0.2);">
+            <span>🔒</span> Multi-stage pipelines run within the Scope Gatekeeper. Each stage verifies authorization before executing capability actions.
           </div>
         </div>
 
@@ -189,6 +234,15 @@ export class WorkflowsView {
 
   private bindEvents(): void {
     if (!this.container) return;
+
+    const selectTarget = this.container.querySelector<HTMLSelectElement>('#workflow-target-select');
+    const inputTarget = this.container.querySelector<HTMLInputElement>('#workflow-target-input');
+
+    selectTarget?.addEventListener('change', () => {
+      if (selectTarget.value && inputTarget) {
+        inputTarget.value = selectTarget.value;
+      }
+    });
 
     this.container.querySelectorAll<HTMLButtonElement>('.btn-run-pipeline').forEach((btn) => {
       btn.addEventListener('click', () => {

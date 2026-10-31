@@ -2,7 +2,16 @@
  * Shadow : Helix Nebula (SHN) — Personalization & UI Settings Store
  */
 
-import type { PersonalizationSettings, ThemeMode, AccentColor, FontPreference, DensityPreference, BackgroundStyle } from '../contracts.js';
+import type {
+  PersonalizationSettings,
+  ThemeMode,
+  AccentColor,
+  FontPreference,
+  DensityPreference,
+  BackgroundStyle,
+  BundledWallpaper,
+  AmbientSettings,
+} from '../contracts.js';
 import type { ApiClient } from '../services/api-client.js';
 
 const STORAGE_KEY = 'shn_personalization_v1';
@@ -16,6 +25,10 @@ const DEFAULT_SETTINGS: PersonalizationSettings = {
   backgroundOpacity: 0.85,
   backgroundStyle: 'nebula',
   refreshIntervalSeconds: 30,
+  wallpaperPreset: 'nebula-core',
+  wallpaperOpacity: 0.5,
+  wallpaperBlur: 6,
+  overlayIntensity: 0.65,
 };
 
 export class SettingsStore {
@@ -49,12 +62,23 @@ export class SettingsStore {
         else if (prefs.accentColor === 'amber') accent = 'amber';
         else if (prefs.accentColor === 'rose') accent = 'magenta';
 
-        this.updateSettings({
+        const layout = (prefs.dashboardLayout || {}) as Record<string, any>;
+        const ambient = (layout.ambientSettings || {}) as Partial<AmbientSettings>;
+
+        const updates: Partial<PersonalizationSettings> = {
           theme,
           accent,
           density: prefs.density === 'compact' ? 'compact' : 'comfortable',
           reducedMotion: Boolean(prefs.reducedMotion),
-        }, false);
+        };
+
+        if (ambient.wallpaperPreset) updates.wallpaperPreset = ambient.wallpaperPreset;
+        if (ambient.customWallpaperDataUrl) updates.customWallpaperDataUrl = ambient.customWallpaperDataUrl;
+        if (typeof ambient.wallpaperOpacity === 'number') updates.wallpaperOpacity = ambient.wallpaperOpacity;
+        if (typeof ambient.wallpaperBlur === 'number') updates.wallpaperBlur = ambient.wallpaperBlur;
+        if (typeof ambient.overlayIntensity === 'number') updates.overlayIntensity = ambient.overlayIntensity;
+
+        this.updateSettings(updates, false);
       }
     } catch {
       // Offline / unauthenticated fallback to local storage
@@ -103,6 +127,15 @@ export class SettingsStore {
         accentColor: accent as any,
         density: this.settings.density,
         reducedMotion: this.settings.reducedMotion,
+        dashboardLayout: {
+          ambientSettings: {
+            wallpaperPreset: this.settings.wallpaperPreset,
+            customWallpaperDataUrl: this.settings.customWallpaperDataUrl,
+            wallpaperOpacity: this.settings.wallpaperOpacity,
+            wallpaperBlur: this.settings.wallpaperBlur,
+            overlayIntensity: this.settings.overlayIntensity,
+          },
+        },
       }).catch(() => {
         // Backend sync failure silent fallback
       });
@@ -137,6 +170,36 @@ export class SettingsStore {
     this.updateSettings({ backgroundStyle });
   }
 
+  setWallpaperPreset(wallpaperPreset: BundledWallpaper): void {
+    this.updateSettings({ wallpaperPreset });
+  }
+
+  setCustomWallpaper(customWallpaperDataUrl: string): void {
+    this.updateSettings({
+      wallpaperPreset: 'custom',
+      customWallpaperDataUrl,
+    });
+  }
+
+  clearCustomWallpaper(): void {
+    this.updateSettings({
+      wallpaperPreset: 'nebula-core',
+      customWallpaperDataUrl: undefined,
+    });
+  }
+
+  setWallpaperOpacity(wallpaperOpacity: number): void {
+    this.updateSettings({ wallpaperOpacity });
+  }
+
+  setWallpaperBlur(wallpaperBlur: number): void {
+    this.updateSettings({ wallpaperBlur });
+  }
+
+  setOverlayIntensity(overlayIntensity: number): void {
+    this.updateSettings({ overlayIntensity });
+  }
+
   private applyToDom(): void {
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
@@ -147,7 +210,21 @@ export class SettingsStore {
     root.setAttribute('data-density', this.settings.density);
     root.setAttribute('data-reduced-motion', String(this.settings.reducedMotion));
     root.setAttribute('data-bg-style', this.settings.backgroundStyle);
+    root.setAttribute('data-wallpaper', this.settings.wallpaperPreset);
 
     root.style.setProperty('--bg-nebula-opacity', String(this.settings.backgroundOpacity));
+    root.style.setProperty('--wallpaper-opacity', String(this.settings.wallpaperOpacity));
+    root.style.setProperty('--wallpaper-blur', `${this.settings.wallpaperBlur}px`);
+    root.style.setProperty('--overlay-center', String(Math.max(0, this.settings.overlayIntensity - 0.25)));
+    root.style.setProperty('--overlay-edge', String(this.settings.overlayIntensity));
+
+    const wallpaperEl = document.querySelector<HTMLElement>('#ambient-wallpaper-image');
+    if (wallpaperEl) {
+      if (this.settings.wallpaperPreset === 'custom' && this.settings.customWallpaperDataUrl) {
+        wallpaperEl.style.backgroundImage = `url("${this.settings.customWallpaperDataUrl}")`;
+      } else {
+        wallpaperEl.style.backgroundImage = '';
+      }
+    }
   }
 }

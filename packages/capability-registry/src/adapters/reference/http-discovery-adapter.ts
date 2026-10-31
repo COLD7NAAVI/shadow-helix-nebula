@@ -45,6 +45,12 @@ export class HttpDiscoveryAdapter extends BaseToolAdapter {
         supportedTargetTypes: ['URL', 'DOMAIN', 'HOST'],
         priority: 100,
       },
+      {
+        capabilityId: createCapabilityId('shn://capabilities/web/http-baseline').unwrapOr('shn://capabilities/web/http-baseline' as any),
+        versionConstraint: '^1.0.0',
+        supportedTargetTypes: ['URL', 'DOMAIN', 'HOST'],
+        priority: 100,
+      },
     ];
   }
 
