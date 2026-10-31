@@ -62,12 +62,12 @@ export class HttpDiscoveryAdapter extends BaseToolAdapter {
     const baseRes = super.validateTarget(capability, target, port);
     if (baseRes.isErr) return baseRes;
 
-    // HTTP discovery requires http:// or https:// or plain hostname
-    if (!target.startsWith('http://') && !target.startsWith('https://') && !/^[a-zA-Z0-9.-]+$/.test(target)) {
+    // HTTP discovery requires http:// or https:// or plain hostname, IP, or host:port
+    if (!target.startsWith('http://') && !target.startsWith('https://') && !/^[a-zA-Z0-9.:-]+$/.test(target)) {
       return err(
         makeCapabilityProblem(
           ErrorCode.INVALID_PAYLOAD_SCHEMA,
-          `Target '${target}' must be a valid HTTP/HTTPS URL or domain`
+          `Target '${target}' must be a valid HTTP/HTTPS URL, domain, or IP address`
         )
       );
     }
@@ -79,7 +79,7 @@ export class HttpDiscoveryAdapter extends BaseToolAdapter {
     _capability: CapabilityDefinition,
     target: string,
     params: Record<string, unknown>,
-    _port?: number
+    port?: number
   ): Result<CommandVector, ProblemDetails> {
     const args: string[] = ['-s', '-S', '-I'];
 
@@ -104,9 +104,26 @@ export class HttpDiscoveryAdapter extends BaseToolAdapter {
     args.push('-A', userAgent);
 
     // Target URL
-    const url = target.startsWith('http://') || target.startsWith('https://')
-      ? target
-      : `https://${target}`;
+    const effectivePort = port ?? (typeof params['port'] === 'number' ? params['port'] : undefined);
+    let url = target;
+
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      const scheme = effectivePort === 443 ? 'https' : 'http';
+      url = `${scheme}://${target}`;
+    }
+
+    if (effectivePort !== undefined && !url.match(/:\d+(\/|$)/)) {
+      try {
+        const parsed = new URL(url);
+        if (!parsed.port) {
+          parsed.port = String(effectivePort);
+          url = parsed.toString();
+        }
+      } catch {
+        url = `${url}:${effectivePort}`;
+      }
+    }
+
     args.push(url);
 
     return ok({

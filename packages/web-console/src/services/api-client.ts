@@ -334,26 +334,87 @@ export class ApiClient {
 
   // Capabilities
   async listCapabilities(): Promise<Capability[]> {
-    return this.request<Capability[]>('/api/v1/capabilities');
+    const caps = await this.request<any[]>('/api/v1/capabilities');
+    return (caps || []).map((c) => ({
+      ...c,
+      id: c.id,
+      uri: c.uri || c.id,
+      name: c.name || c.id,
+      displayName: c.displayName || c.name || c.id,
+      version: c.version || '1.0.0',
+      category: c.category || 'UTILITY',
+      description: c.description || '',
+      state: c.state || c.lifecycleState || 'ACTIVE',
+    }));
   }
 
   async getCapability(capabilityId: string): Promise<Capability> {
-    return this.request<Capability>(`/api/v1/capabilities/${encodeURIComponent(capabilityId)}`);
+    const c = await this.request<any>(`/api/v1/capabilities/${encodeURIComponent(capabilityId)}`);
+    return {
+      ...c,
+      id: c.id,
+      uri: c.uri || c.id,
+      name: c.name || c.id,
+      displayName: c.displayName || c.name || c.id,
+      version: c.version || '1.0.0',
+      category: c.category || 'UTILITY',
+      description: c.description || '',
+      state: c.state || c.lifecycleState || 'ACTIVE',
+    };
   }
 
   async listWorkspaceCapabilities(workspaceId: string): Promise<Capability[]> {
-    return this.request<Capability[]>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/capabilities`);
+    const caps = await this.request<any[]>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/capabilities`);
+    return (caps || []).map((c) => ({
+      ...c,
+      id: c.id,
+      uri: c.uri || c.id,
+      name: c.name || c.id,
+      displayName: c.displayName || c.name || c.id,
+      version: c.version || '1.0.0',
+      category: c.category || 'UTILITY',
+      description: c.description || '',
+      state: c.state || c.lifecycleState || 'ACTIVE',
+    }));
   }
 
   // Executions
+  private normalizeExecution(e: any): Execution {
+    return {
+      ...e,
+      id: e.id || e.executionId || '',
+      executionId: e.executionId || e.id || '',
+      workspaceId: e.workspaceId || e.workspace_id,
+      organizationId: e.organizationId || e.organization_id,
+      scopeId: e.scopeId || e.scope_id,
+      action: e.action || e.capabilityUri || e.capability_uri || 'Capability',
+      target: e.target || '',
+      port: e.port !== undefined ? Number(e.port) : undefined,
+      capabilityUri: e.capabilityUri || e.capability_uri || e.capabilityId,
+      state: e.state || 'QUEUED',
+      requestedBy: e.requestedBy || e.requested_by,
+      stdoutSummary: e.stdoutSummary ?? e.stdout_summary ?? e.rawOutput ?? null,
+      stderrSummary: e.stderrSummary ?? e.stderr_summary ?? e.rawStderr ?? null,
+      rawOutputSha256: e.rawOutputSha256 ?? e.raw_output_sha256 ?? null,
+      createdAt: e.createdAt || e.created_at || new Date().toISOString(),
+      startedAt: e.startedAt || e.started_at || null,
+      completedAt: e.completedAt || e.completed_at || null,
+      durationMs: e.durationMs,
+      output: e.output,
+      command: e.command,
+    };
+  }
+
   async listExecutions(workspaceId: string): Promise<Execution[]> {
-    return this.request<Execution[]>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/executions`);
+    const list = await this.request<any[]>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/executions`);
+    return (list || []).map((e) => this.normalizeExecution(e));
   }
 
   async getExecution(workspaceId: string, executionId: string): Promise<Execution> {
-    return this.request<Execution>(
+    const raw = await this.request<any>(
       `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/executions/${encodeURIComponent(executionId)}`
     );
+    return this.normalizeExecution(raw);
   }
 
   async executeCapability(
@@ -366,10 +427,18 @@ export class ApiClient {
       scopeId?: string | undefined;
     }
   ): Promise<Execution> {
-    return this.request<Execution>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/executions`, {
+    if (!input.capabilityId || input.capabilityId === 'undefined' || input.capabilityId.trim() === '') {
+      throw new Error('Valid capability identifier is required for execution dispatch.');
+    }
+    if (!input.target || input.target === 'undefined' || input.target.trim() === '') {
+      throw new Error('Valid target is required for execution dispatch.');
+    }
+
+    const raw = await this.request<any>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/executions`, {
       method: 'POST',
       body: JSON.stringify(input),
     });
+    return this.normalizeExecution(raw);
   }
 
   async dispatchExecution(
@@ -382,6 +451,13 @@ export class ApiClient {
       scopeId?: string | undefined;
     }
   ): Promise<Execution> {
+    if (!input.capabilityUri || input.capabilityUri === 'undefined' || input.capabilityUri.trim() === '') {
+      throw new Error('Valid capability identifier is required for execution dispatch.');
+    }
+    if (!input.target || input.target === 'undefined' || input.target.trim() === '') {
+      throw new Error('Valid target is required for execution dispatch.');
+    }
+
     return this.executeCapability(workspaceId, {
       capabilityId: input.capabilityUri,
       target: input.target,

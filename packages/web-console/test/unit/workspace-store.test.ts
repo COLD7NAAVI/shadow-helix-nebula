@@ -26,6 +26,14 @@ describe('WorkspaceStore (Unit Tests)', () => {
 
     mockApi = new ApiClient();
     (mockApi as any).listWorkspaces = async () => [...workspaceList];
+    (mockApi as any).switchWorkspace = async (workspaceId: string) => ({
+      token: 'mock-token',
+      user: { id: 'user-1', email: 'test@shn.sovereign', displayName: 'Tester', organizationId: 'org-1' },
+      workspaceId,
+      roles: ['ADMIN'],
+      permissionMask: 0xffffffff,
+      expiresAt: Date.now() + 3600000,
+    });
     (mockApi as any).createWorkspace = async ({ name }: { name: string }) => {
       const created = { id: 'ws-new-' + Date.now(), name, slug: name.toLowerCase().replace(/\s+/g, '-') };
       workspaceList.push(created);
@@ -58,7 +66,7 @@ describe('WorkspaceStore (Unit Tests)', () => {
     const store = new WorkspaceStore(mockApi, mockAuth);
     await store.loadWorkspaces();
 
-    store.setActiveWorkspace('ws-2');
+    await store.setActiveWorkspace('ws-2');
 
     assert.equal(store.getActiveWorkspace()?.id, 'ws-2');
     assert.equal(store.getActiveWorkspace()?.name, 'Quantum Sandbox');

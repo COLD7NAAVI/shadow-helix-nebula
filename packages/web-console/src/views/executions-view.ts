@@ -78,9 +78,9 @@ export function renderExecutionsView(
               </thead>
               <tbody>
                 ${executions.length > 0 ? executions.map((e) => {
-                  const isSuccess = e.state === 'COMPLETED';
+                  const isSuccess = e.state === 'COMPLETED' || e.state === 'SUCCEEDED';
                   const isRunning = e.state === 'RUNNING';
-                  const isFailed = e.state === 'FAILED';
+                  const isFailed = e.state === 'FAILED' || e.state === 'REJECTED' || e.state === 'TIMED_OUT';
                   const statusClass = isSuccess ? 'badge-active' : isRunning ? 'badge-info' : isFailed ? 'badge-critical' : 'badge-low';
                   const sha = e.rawOutputSha256 || e.raw_output_sha256;
 
@@ -138,7 +138,7 @@ export function renderExecutionsView(
                 <label class="form-label" for="launch-cap-select">Capability Tool</label>
                 <select class="form-select" id="launch-cap-select" required>
                   ${capabilities.length > 0 ? capabilities.map((c) => `
-                    <option value="${c.uri || c.id}">${c.name} (${c.uri || c.id})</option>
+                    <option value="${c.id || c.uri}">${c.displayName || c.name} (${c.id || c.uri})</option>
                   `).join('') : `
                     <option value="" disabled selected>No capabilities registered in catalog</option>
                   `}

@@ -335,6 +335,7 @@ export class AiController {
     const workspaceId = req.workspaceId;
     const id = req.params['id'];
     const userId = req.actor?.id ?? '01a14abf-c197-74f4-8bbd-555eefc2a4b6';
+    const orgId = req.actor?.organizationId ?? (req.securityContext?.workspace_id as any);
 
     if (!this.opts.aiRecommendationRepo || !id || !workspaceId) {
       res.status(404).json({ error: 'Recommendation not found' });
@@ -352,18 +353,32 @@ export class AiController {
       if (this.opts.capabilityDispatcher) {
         // Dispatch tool invocation through strict ScopeGatekeeper and ExecutionSupervisor
         try {
-          const dispatchRes = await this.opts.capabilityDispatcher.dispatch({
+          const execRes = await this.opts.capabilityDispatcher.executeCapability({
             workspaceId,
-            action: rec.requiredScopeAction,
+            organizationId: orgId,
+            actorId: userId,
+            capabilityId: rec.proposedCapability,
             target: rec.target,
-            capabilityUri: rec.proposedCapability,
-            parameters: rec.parameters,
-            operatorId: userId,
+            parameters: rec.parameters ?? {},
             securityContext: req.securityContext,
           });
-          executionResult = dispatchRes?.executionId ?? null;
+          if (execRes.isOk) {
+            executionResult = execRes.value.executionId;
+          } else {
+            sendProblemDetails(res, execRes.error);
+            return;
+          }
         } catch (dispatchErr: any) {
-          console.warn('[AI Assistant] Tool dispatch rejected or deferred:', dispatchErr?.message);
+          sendProblemDetails(
+            res,
+            createProblemDetails({
+              errorCode: ErrorCode.ADAPTER_EXECUTION_FAILED,
+              detail: dispatchErr?.message || 'Recommendation execution dispatch failed',
+              instance: req.path,
+              correlationId: req.correlationId,
+            })
+          );
+          return;
         }
       }
 
@@ -511,27 +526,41 @@ export class AiController {
     if (this.opts.assetRepo) {
       try {
         const assets = await this.opts.assetRepo.listByWorkspace(workspaceId);
-        targets = assets.map((a: any) => ({
-          name: a.name || 'Asset',
-          target: a.canonical_value || a.canonicalValue,
-        }));
+        targets = assets
+          .map((a: any) => ({
+            name: a.name || 'Asset',
+            target: a.canonical_value || a.canonicalValue,
+          }))
+          .filter((t: any) => Boolean(t.target));
       } catch {}
     }
 
+    // Recommendations must strictly ground in real workspace assets and authorized scope
     if (targets.length === 0) {
-      targets.push({ name: 'Verification Node', target: '192.168.100.1' });
+      return [];
+    }
+
+    let activeScopes: any[] = [];
+    if (this.opts.scopeRepo) {
+      try {
+        activeScopes = await this.opts.scopeRepo.findActiveByWorkspace(workspaceId);
+      } catch {}
+    }
+
+    if (activeScopes.length === 0) {
+      return [];
     }
 
     const created: any[] = [];
     const primary = targets[0]!;
 
-    // Recommendation 1: HTTP header audit
+    // Grounded Recommendation 1: HTTP discovery/baseline
     const rec1 = await this.opts.aiRecommendationRepo.create({
       workspaceId,
       organizationId: orgId,
       recommendationId: `rec_http_audit_${Date.now()}_1`,
       objective: `Perform non-invasive HTTP header and banner discovery on ${primary.name}`,
-      rationale: `Target ${primary.target} is within authorized scope. Probing HTTP response headers identifies web server technologies and evaluates defensive headers (Content-Security-Policy, Strict-Transport-Security, X-Frame-Options) without service disruption.`,
+      rationale: `Target ${primary.target} is within authorized workspace inventory. Probing HTTP response headers evaluates defensive headers (Content-Security-Policy, Strict-Transport-Security, X-Frame-Options) without service disruption.`,
       proposedCapability: 'shn://capabilities/web/http-discovery',
       parameters: { timeoutMs: 5000, followRedirects: true },
       target: primary.target,
@@ -543,25 +572,6 @@ export class AiController {
       expectedImpact: 'Generates negligible network traffic (~1 HTTP GET request)',
     });
     created.push(rec1);
-
-    // Recommendation 2: Scoped Port Scan
-    const rec2 = await this.opts.aiRecommendationRepo.create({
-      workspaceId,
-      organizationId: orgId,
-      recommendationId: `rec_port_scan_${Date.now()}_2`,
-      objective: `Execute authorized TCP connect port scan on top common services for ${primary.name}`,
-      rationale: `Service discovery is necessary to map exposed attack surface. Running a rate-limited non-invasive connect scan identifies open TCP ports while complying with scope rate-limits.`,
-      proposedCapability: 'shn://capabilities/network/port-scan',
-      parameters: { ports: '80,443,3000,8080', timing: 3 },
-      target: primary.target,
-      requiredScopeAction: 'network:scan',
-      riskLevel: 'LOW',
-      requiresApproval: false,
-      confidence: 0.90,
-      assumptions: ['Host allows TCP SYN/Connect probes'],
-      expectedImpact: 'Monitored SYN/connect packets on 4 target ports',
-    });
-    created.push(rec2);
 
     return created;
   }

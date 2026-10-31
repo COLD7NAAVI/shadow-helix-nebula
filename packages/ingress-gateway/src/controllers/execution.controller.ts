@@ -13,22 +13,25 @@ import {
   createProblemDetails,
 } from '@shn/error-catalog';
 import type { CapabilityDispatcher } from '@shn/capability-registry';
-import type { ExecutionRepository } from '@shn/data-access';
+import type { ExecutionRepository, ScopeRepository } from '@shn/data-access';
 import type { IngressRequest, IngressResponse } from '../contracts.js';
 import { sendProblemDetails } from '../errors/problem-details-filter.js';
 
 export interface ExecutionControllerOptions {
   dispatcher: CapabilityDispatcher;
   executionRepo?: ExecutionRepository | undefined;
+  scopeRepo?: ScopeRepository | undefined;
 }
 
 export class ExecutionController {
   private readonly dispatcher: CapabilityDispatcher;
   private readonly executionRepo?: ExecutionRepository | undefined;
+  private readonly scopeRepo?: ScopeRepository | undefined;
 
   constructor(options: ExecutionControllerOptions) {
     this.dispatcher = options.dispatcher;
     this.executionRepo = options.executionRepo;
+    this.scopeRepo = options.scopeRepo;
   }
 
   async execute(req: IngressRequest, res: IngressResponse): Promise<void> {
@@ -57,10 +60,10 @@ export class ExecutionController {
       scopeOverride,
     } = body;
 
-    if (!capabilityId || typeof capabilityId !== 'string') {
+    if (!capabilityId || typeof capabilityId !== 'string' || capabilityId.trim() === '' || capabilityId === 'undefined') {
       const problem = createProblemDetails({
         errorCode: ErrorCode.INVALID_PAYLOAD_SCHEMA,
-        detail: 'Field "capabilityId" is required.',
+        detail: 'Field "capabilityId" must be a valid non-empty string.',
         instance: req.path,
         correlationId: req.correlationId,
       });
@@ -68,10 +71,10 @@ export class ExecutionController {
       return;
     }
 
-    if (!target || typeof target !== 'string') {
+    if (!target || typeof target !== 'string' || target.trim() === '' || target === 'undefined') {
       const problem = createProblemDetails({
         errorCode: ErrorCode.INVALID_PAYLOAD_SCHEMA,
-        detail: 'Field "target" is required.',
+        detail: 'Field "target" must be a valid non-empty string.',
         instance: req.path,
         correlationId: req.correlationId,
       });
@@ -80,6 +83,17 @@ export class ExecutionController {
     }
 
     const orgId = req.actor.organizationId ?? (req.securityContext.workspace_id as unknown as OrganizationId);
+
+    let effectiveScopeId = scopeId;
+    if (!effectiveScopeId && this.scopeRepo) {
+      try {
+        const scopes = await this.scopeRepo.listByWorkspace(workspaceId);
+        const activeScope = scopes.find((s: any) => s.status === 'ACTIVE') ?? scopes[0];
+        if (activeScope) {
+          effectiveScopeId = activeScope.id;
+        }
+      } catch {}
+    }
 
     const result = await this.dispatcher.executeCapability({
       capabilityId,
@@ -90,7 +104,7 @@ export class ExecutionController {
       workspaceId,
       organizationId: orgId,
       actorId: req.actor.id,
-      scopeId: scopeId as ScopeId | undefined,
+      scopeId: effectiveScopeId as ScopeId | undefined,
       scopeToken: scopeToken as ScopeToken | undefined,
       scopeOverride: scopeOverride ?? undefined,
       preferredAdapterId,
@@ -101,7 +115,35 @@ export class ExecutionController {
       return;
     }
 
-    res.status(200).json(result.value);
+    let record: any = null;
+    if (this.executionRepo && result.value.executionId) {
+      try {
+        record = await this.executionRepo.findById(result.value.executionId as ExecutionId, workspaceId);
+      } catch {}
+    }
+
+    const responsePayload = {
+      id: result.value.executionId,
+      executionId: result.value.executionId,
+      workspaceId,
+      target: target.trim(),
+      port: port !== undefined ? Number(port) : undefined,
+      capabilityUri: capabilityId,
+      action: record?.action || result.value.capabilityId || capabilityId,
+      state: result.value.state,
+      exitCode: result.value.exitCode,
+      stdoutSummary: result.value.rawOutput || record?.stdout_summary || null,
+      stderrSummary: result.value.rawStderr || record?.stderr_summary || null,
+      rawOutputSha256: result.value.rawOutputSha256 || record?.raw_output_sha256 || null,
+      durationMs: result.value.durationMs,
+      output: result.value.output,
+      createdAt: record?.created_at || new Date().toISOString(),
+      startedAt: record?.started_at || new Date().toISOString(),
+      completedAt: record?.completed_at || new Date().toISOString(),
+      command: record?.command,
+    };
+
+    res.status(200).json(responsePayload);
   }
 
   async get(req: IngressRequest, res: IngressResponse): Promise<void> {

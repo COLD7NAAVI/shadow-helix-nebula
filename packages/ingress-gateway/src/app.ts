@@ -160,6 +160,7 @@ export function createIngressApplication(deps: AppDependencies): IngressServer {
     const execCtrl = new ExecutionController({
       dispatcher: deps.capabilityDispatcher,
       executionRepo: deps.executionRepo,
+      scopeRepo: deps.scopeRepo,
     });
     router.post('/api/v1/workspaces/:workspaceId/executions', authMiddleware, tenancyMiddleware, (req, res) => execCtrl.execute(req, res));
     router.get('/api/v1/workspaces/:workspaceId/executions', authMiddleware, tenancyMiddleware, (req, res) => execCtrl.list(req, res));

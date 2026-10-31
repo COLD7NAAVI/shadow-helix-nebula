@@ -154,13 +154,18 @@ export interface FindingTransition {
 
 export interface Capability {
   id: string;
-  uri: string;
+  uri?: string;
   name: string;
+  displayName?: string;
   version: string;
   category: string;
   description: string;
   state: 'ACTIVE' | 'DEPRECATED' | 'DISABLED';
   parametersSchema?: Record<string, unknown>;
+  argumentSchema?: Record<string, unknown>;
+  supportedTargets?: string[];
+  requiredScopeAction?: string;
+  riskLevel?: string;
   adapters?: Array<{
     id: string;
     name: string;
@@ -171,6 +176,7 @@ export interface Capability {
 
 export interface Execution {
   id: string;
+  executionId?: string;
   workspaceId?: string;
   workspace_id?: string;
   organizationId?: string;
@@ -178,9 +184,26 @@ export interface Execution {
   scope_id?: string | null;
   action: string;
   target: string;
+  port?: number | undefined;
   capabilityUri?: string;
   capability_uri?: string;
-  state: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  capabilityId?: string;
+  capability_id?: string;
+  state:
+    | 'CREATED'
+    | 'VALIDATING'
+    | 'AUTHORIZED'
+    | 'QUEUED'
+    | 'STARTING'
+    | 'RUNNING'
+    | 'CANCELLING'
+    | 'SUCCEEDED'
+    | 'FAILED'
+    | 'TIMED_OUT'
+    | 'CANCELLED'
+    | 'TERMINATED'
+    | 'REJECTED'
+    | 'COMPLETED';
   requestedBy?: string;
   requested_by?: string;
   stdoutSummary?: string | null;
@@ -195,6 +218,8 @@ export interface Execution {
   started_at?: string | null;
   completedAt?: string | null;
   completed_at?: string | null;
+  durationMs?: number;
+  output?: unknown;
   command?: { executable: string; args: string[] };
 }
 
