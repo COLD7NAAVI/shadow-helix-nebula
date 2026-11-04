@@ -165,7 +165,7 @@ export function renderExecutionsView(
               </div>
 
               <div style="padding:10px 12px;border-radius:var(--radius-sm);background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);font-size:11px;color:var(--text-secondary);">
-                <span>🛡 Zero-trust gatekeeper evaluates scope containment prior to process spawn. Cloud metadata and loopback destinations are permanently blocked.</span>
+                <span>🛡 Zero-trust gatekeeper evaluates scope containment prior to process spawn. Cloud metadata destinations are permanently blocked. Loopback targets are permitted only when the active scope explicitly authorizes them.</span>
               </div>
             </div>
             <div class="modal-footer">
